@@ -8,7 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.trackit.core.ui.theme.MapPlaceholder
+import com.trackit.core.ui.theme.SoftCream
 
 @Composable
 fun MapPlaceholder(
@@ -18,13 +18,13 @@ fun MapPlaceholder(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MapPlaceholder),
+            .background(SoftCream),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

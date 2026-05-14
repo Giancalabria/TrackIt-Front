@@ -103,11 +103,9 @@ class PackageRepository : IPackageRepository {
             packages.map { packageItem ->
                 when {
                     packageItem.id == id -> {
-                        // Si el estado vuelve a EN_DEPOSITO, quitamos el chofer asignado
                         val driverId = if (status == PackageStatus.EN_DEPOSITO) null else packageItem.assignedDriverId
                         packageItem.copy(status = status, assignedDriverId = driverId)
                     }
-                    // Mantener la exclusividad de EN_CAMINO para el mismo chofer
                     status == PackageStatus.EN_CAMINO && 
                     packageItem.status == PackageStatus.EN_CAMINO && 
                     packageItem.assignedDriverId == _packages.value.find { it.id == id }?.assignedDriverId -> {
@@ -179,6 +177,20 @@ class PackageRepository : IPackageRepository {
             registeredByWarehouse = true
         )
         _packages.update { it + newPackage }
+    }
+
+    override suspend fun updatePackage(updatedPackage: Package) {
+        delay(300)
+        _packages.update { packages ->
+            packages.map { if (it.id == updatedPackage.id) updatedPackage else it }
+        }
+    }
+
+    override suspend fun deletePackage(packageId: String) {
+        delay(300)
+        _packages.update { packages ->
+            packages.filterNot { it.id == packageId }
+        }
     }
 
     override suspend fun getDeliveredCount(): Int {

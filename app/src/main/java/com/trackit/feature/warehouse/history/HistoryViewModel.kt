@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class HistoryViewModel(
     private val packageRepository: IPackageRepository = PackageRepository.getInstance()
@@ -20,4 +21,16 @@ class HistoryViewModel(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList()
         )
+
+    fun updatePackage(pkg: Package) {
+        viewModelScope.launch {
+            packageRepository.updatePackage(pkg)
+        }
+    }
+
+    fun deletePackage(packageId: String) {
+        viewModelScope.launch {
+            packageRepository.deletePackage(packageId)
+        }
+    }
 }

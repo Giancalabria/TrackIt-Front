@@ -21,6 +21,8 @@ interface IPackageRepository {
         isFragile: Boolean,
         scheduledDate: LocalDate
     )
+    suspend fun updatePackage(updatedPackage: Package)
+    suspend fun deletePackage(packageId: String)
     suspend fun getDeliveredCount(): Int
     suspend fun getPendingCount(): Int
 }

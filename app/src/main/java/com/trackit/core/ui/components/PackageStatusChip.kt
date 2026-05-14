@@ -5,8 +5,7 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import com.trackit.core.ui.theme.DeepForestGreen
-import com.trackit.core.ui.theme.TerracottaOrange
+import androidx.compose.ui.graphics.Color
 import com.trackit.data.model.PackageStatus
 
 @Composable
@@ -14,14 +13,14 @@ fun PackageStatusChip(status: PackageStatus) {
     val (label, containerColor, labelColor) = when (status) {
         PackageStatus.EN_DEPOSITO -> Triple(
             "En depósito",
-            MaterialTheme.colorScheme.surfaceVariant,
-            MaterialTheme.colorScheme.onSurfaceVariant
+            Color.LightGray.copy(alpha = 0.2f),
+            Color.Gray
         )
 
         PackageStatus.ASIGNADO -> Triple(
             "Asignado",
-            MaterialTheme.colorScheme.secondaryContainer,
-            MaterialTheme.colorScheme.onSecondaryContainer
+            Color(0xFFE3F2FD), // Light Blue
+            Color(0xFF1976D2)
         )
 
         PackageStatus.CARGADO -> Triple(
@@ -32,14 +31,20 @@ fun PackageStatusChip(status: PackageStatus) {
 
         PackageStatus.EN_CAMINO -> Triple(
             "En camino",
-            TerracottaOrange.copy(alpha = 0.18f),
-            TerracottaOrange
+            Color(0xFFD85C3A).copy(alpha = 0.18f),
+            Color(0xFFD85C3A)
         )
 
         PackageStatus.ENTREGADO -> Triple(
             "Entregado",
-            DeepForestGreen.copy(alpha = 0.18f),
-            DeepForestGreen
+            Color(0xFF2C5E3E).copy(alpha = 0.18f),
+            Color(0xFF2C5E3E)
+        )
+
+        PackageStatus.FALLIDO -> Triple(
+            "Fallido",
+            Color(0xFFB3261E).copy(alpha = 0.18f),
+            Color(0xFFB3261E)
         )
     }
 

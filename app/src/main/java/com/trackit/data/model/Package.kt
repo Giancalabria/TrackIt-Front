@@ -13,7 +13,8 @@ enum class PackageStatus {
     ASIGNADO,
     CARGADO,
     EN_CAMINO,
-    ENTREGADO
+    ENTREGADO,
+    FALLIDO
 }
 
 data class Package(

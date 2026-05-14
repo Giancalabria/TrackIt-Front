@@ -25,13 +25,10 @@ fun GlobalMapScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // El mapa de fondo
         MapPlaceholder(label = "Mapa global (Simulado)")
 
-        // Marcadores aleatorios (Simulando camiones en el mapa)
         MapMarkers()
 
-        // Tarjeta de Métricas (Reemplaza al BottomSheet molesto)
         if (!uiState.isLoading) {
             MetricsOverlay(
                 delivered = uiState.deliveredCount,
