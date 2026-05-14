@@ -1,5 +1,7 @@
 package com.trackit.data.model
 
+import java.time.LocalDate
+
 enum class PackageSize {
     SMALL,
     MEDIUM,
@@ -7,9 +9,11 @@ enum class PackageSize {
 }
 
 enum class PackageStatus {
-    PENDING,
-    IN_TRANSIT,
-    DELIVERED
+    EN_DEPOSITO,
+    ASIGNADO,
+    CARGADO,
+    EN_CAMINO,
+    ENTREGADO
 }
 
 data class Package(
@@ -20,5 +24,7 @@ data class Package(
     val size: PackageSize,
     val isFragile: Boolean,
     val status: PackageStatus,
+    val scheduledDate: LocalDate = LocalDate.now(),
+    val assignedDriverId: String? = null,
     val registeredByWarehouse: Boolean = false
 )

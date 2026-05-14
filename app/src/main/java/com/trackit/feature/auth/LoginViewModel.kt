@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackit.data.model.User
 import com.trackit.data.repository.AuthRepository
-import kotlinx.coroutines.delay
+import com.trackit.data.repository.IAuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +19,9 @@ data class LoginUiState(
     val loggedInUser: User? = null
 )
 
-class LoginViewModel : ViewModel() {
+class LoginViewModel(
+    private val authRepository: IAuthRepository = AuthRepository.getInstance()
+) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
@@ -40,9 +42,8 @@ class LoginViewModel : ViewModel() {
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            delay(500)
 
-            val user = AuthRepository.login(currentState.email, currentState.password)
+            val user = authRepository.login(currentState.email, currentState.password)
             if (user == null) {
                 _uiState.update {
                     it.copy(

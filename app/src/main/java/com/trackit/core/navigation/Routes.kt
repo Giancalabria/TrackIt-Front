@@ -18,6 +18,8 @@ object Routes {
     const val ADMIN_FLEET = "admin/fleet"
     const val ADMIN_GLOBAL_MAP = "admin/global_map"
     const val ADMIN_PROFILE = "admin/profile"
+    const val ADMIN_ASSIGN_ROUTE = "admin/assign_route/{driverId}"
 
     fun driverDetail(packageId: String): String = "driver/detail/$packageId"
+    fun adminAssignRoute(driverId: String): String = "admin/assign_route/$driverId"
 }

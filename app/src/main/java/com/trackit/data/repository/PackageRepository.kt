@@ -3,12 +3,14 @@ package com.trackit.data.repository
 import com.trackit.data.model.Package
 import com.trackit.data.model.PackageSize
 import com.trackit.data.model.PackageStatus
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import java.time.LocalDate
 
-object PackageRepository {
+class PackageRepository : IPackageRepository {
     private val initialPackages = listOf(
         Package(
             id = "PKG-001",
@@ -17,7 +19,9 @@ object PackageRepository {
             eta = "10:30",
             size = PackageSize.MEDIUM,
             isFragile = false,
-            status = PackageStatus.IN_TRANSIT
+            status = PackageStatus.EN_CAMINO,
+            scheduledDate = LocalDate.now(),
+            assignedDriverId = "USR-001"
         ),
         Package(
             id = "PKG-002",
@@ -26,7 +30,9 @@ object PackageRepository {
             eta = "11:00",
             size = PackageSize.SMALL,
             isFragile = true,
-            status = PackageStatus.IN_TRANSIT
+            status = PackageStatus.CARGADO,
+            scheduledDate = LocalDate.now(),
+            assignedDriverId = "USR-001"
         ),
         Package(
             id = "PKG-003",
@@ -35,7 +41,8 @@ object PackageRepository {
             eta = "11:45",
             size = PackageSize.LARGE,
             isFragile = false,
-            status = PackageStatus.PENDING
+            status = PackageStatus.EN_DEPOSITO,
+            scheduledDate = LocalDate.now()
         ),
         Package(
             id = "PKG-004",
@@ -44,7 +51,8 @@ object PackageRepository {
             eta = "12:15",
             size = PackageSize.MEDIUM,
             isFragile = false,
-            status = PackageStatus.IN_TRANSIT
+            status = PackageStatus.EN_DEPOSITO,
+            scheduledDate = LocalDate.now()
         ),
         Package(
             id = "PKG-005",
@@ -53,7 +61,8 @@ object PackageRepository {
             eta = "13:00",
             size = PackageSize.SMALL,
             isFragile = true,
-            status = PackageStatus.PENDING
+            status = PackageStatus.EN_DEPOSITO,
+            scheduledDate = LocalDate.now()
         ),
         Package(
             id = "PKG-006",
@@ -62,80 +71,131 @@ object PackageRepository {
             eta = "13:30",
             size = PackageSize.MEDIUM,
             isFragile = false,
-            status = PackageStatus.DELIVERED
-        ),
-        Package(
-            id = "PKG-007",
-            clientName = "Paula Fernández",
-            address = "Juramento 2100, CABA",
-            eta = "14:00",
-            size = PackageSize.LARGE,
-            isFragile = false,
-            status = PackageStatus.IN_TRANSIT
-        ),
-        Package(
-            id = "PKG-008",
-            clientName = "Tomás Herrera",
-            address = "Larrea 950, CABA",
-            eta = "14:30",
-            size = PackageSize.SMALL,
-            isFragile = false,
-            status = PackageStatus.PENDING
+            status = PackageStatus.ENTREGADO,
+            scheduledDate = LocalDate.now().minusDays(1),
+            assignedDriverId = "USR-001"
         )
     )
 
     private val _packages = MutableStateFlow(initialPackages)
-    val packages: StateFlow<List<Package>> = _packages.asStateFlow()
+    override val packages: StateFlow<List<Package>> = _packages.asStateFlow()
 
-    fun getPackageById(id: String): Package? {
+    override suspend fun getPackageById(id: String): Package? {
+        delay(300)
         return _packages.value.firstOrNull { it.id == id }
     }
 
-    fun getDriverPackages(): List<Package> {
-        return _packages.value.filter { it.status != PackageStatus.DELIVERED }
+    override suspend fun getPackagesByStatus(status: PackageStatus): List<Package> {
+        delay(300)
+        return _packages.value.filter { it.status == status }
     }
 
-    fun getWarehousePackages(): List<Package> {
-        return _packages.value.filter { it.registeredByWarehouse }
+    override suspend fun getDriverPackages(driverId: String): List<Package> {
+        delay(300)
+        return _packages.value
+            .filter { it.assignedDriverId == driverId }
+            .sortedBy { it.eta }
     }
 
-    fun updateStatus(id: String, status: PackageStatus) {
+    override suspend fun updateStatus(id: String, status: PackageStatus) {
+        delay(300)
         _packages.update { packages ->
             packages.map { packageItem ->
-                if (packageItem.id == id) {
-                    packageItem.copy(status = status)
-                } else {
-                    packageItem
+                when {
+                    packageItem.id == id -> {
+                        // Si el estado vuelve a EN_DEPOSITO, quitamos el chofer asignado
+                        val driverId = if (status == PackageStatus.EN_DEPOSITO) null else packageItem.assignedDriverId
+                        packageItem.copy(status = status, assignedDriverId = driverId)
+                    }
+                    // Mantener la exclusividad de EN_CAMINO para el mismo chofer
+                    status == PackageStatus.EN_CAMINO && 
+                    packageItem.status == PackageStatus.EN_CAMINO && 
+                    packageItem.assignedDriverId == _packages.value.find { it.id == id }?.assignedDriverId -> {
+                        packageItem.copy(status = PackageStatus.CARGADO)
+                    }
+                    else -> packageItem
                 }
             }
         }
     }
 
-    fun addPackage(
+    override suspend fun assignPackagesToDriver(packageIds: List<String>, driverId: String) {
+        delay(500)
+        _packages.update { packages ->
+            packages.map { pkg ->
+                if (pkg.id in packageIds) {
+                    pkg.copy(status = PackageStatus.ASIGNADO, assignedDriverId = driverId)
+                } else {
+                    pkg
+                }
+            }
+        }
+    }
+
+    override suspend fun simulateDailyCronJob(currentDate: LocalDate, driverIds: List<String>) {
+        delay(1000)
+        if (driverIds.isEmpty()) return
+
+        _packages.update { packages ->
+            val packagesToAssign = packages.filter { 
+                it.status == PackageStatus.EN_DEPOSITO && it.scheduledDate == currentDate 
+            }
+            
+            if (packagesToAssign.isEmpty()) return@update packages
+
+            val updatedPackages = packages.toMutableList()
+            packagesToAssign.forEachIndexed { index, pkg ->
+                val driverId = driverIds[index % driverIds.size]
+                val pkgIndex = updatedPackages.indexOfFirst { it.id == pkg.id }
+                if (pkgIndex != -1) {
+                    updatedPackages[pkgIndex] = updatedPackages[pkgIndex].copy(
+                        status = PackageStatus.ASIGNADO,
+                        assignedDriverId = driverId
+                    )
+                }
+            }
+            updatedPackages
+        }
+    }
+
+    override suspend fun addPackage(
         clientName: String,
         address: String,
         size: PackageSize,
-        isFragile: Boolean
+        isFragile: Boolean,
+        scheduledDate: LocalDate
     ) {
+        delay(300)
         val nextId = "PKG-${(_packages.value.size + 1).toString().padStart(3, '0')}"
         val newPackage = Package(
             id = nextId,
             clientName = clientName,
             address = address,
-            eta = "Por asignar",
+            eta = "15:00",
             size = size,
             isFragile = isFragile,
-            status = PackageStatus.PENDING,
+            status = PackageStatus.EN_DEPOSITO,
+            scheduledDate = scheduledDate,
             registeredByWarehouse = true
         )
         _packages.update { it + newPackage }
     }
 
-    fun getDeliveredCount(): Int {
-        return _packages.value.count { it.status == PackageStatus.DELIVERED }
+    override suspend fun getDeliveredCount(): Int {
+        return _packages.value.count { it.status == PackageStatus.ENTREGADO }
     }
 
-    fun getPendingCount(): Int {
-        return _packages.value.count { it.status != PackageStatus.DELIVERED }
+    override suspend fun getPendingCount(): Int {
+        return _packages.value.count { it.status != PackageStatus.ENTREGADO }
+    }
+
+    companion object {
+        private var instance: PackageRepository? = null
+        fun getInstance(): PackageRepository {
+            if (instance == null) {
+                instance = PackageRepository()
+            }
+            return instance!!
+        }
     }
 }

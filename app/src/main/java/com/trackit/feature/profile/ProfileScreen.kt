@@ -12,17 +12,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trackit.data.model.UserRole
 import com.trackit.data.repository.AuthRepository
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit
 ) {
-    val user by AuthRepository.currentUser.collectAsStateWithLifecycle()
+    // Usamos getInstance() ya que ahora es una clase, no un object
+    val authRepository = AuthRepository.getInstance()
+    val user by authRepository.currentUser.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -53,8 +58,11 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(32.dp))
         Button(
             onClick = {
-                AuthRepository.logout()
-                onLogout()
+                // logout() ahora es suspend, necesitamos un scope
+                scope.launch {
+                    authRepository.logout()
+                    onLogout()
+                }
             },
             modifier = Modifier.fillMaxWidth()
         ) {
