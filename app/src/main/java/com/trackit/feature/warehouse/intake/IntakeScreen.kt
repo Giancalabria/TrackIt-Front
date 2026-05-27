@@ -8,20 +8,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.trackit.core.ui.components.BarcodeScannerSheet
 import com.trackit.data.model.PackageSize
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -130,13 +123,27 @@ fun IntakeScreen(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+            
             Button(
-                onClick = viewModel::submitPackage,
-                modifier = Modifier.fillMaxWidth()
+                onClick = viewModel::openScanner,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary
+                )
             ) {
-                Text("Registrar paquete")
+                Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(if (uiState.barcode.isEmpty()) "Escanear Código de Barras" else "Código: ${uiState.barcode}")
             }
         }
+    }
+
+    if (uiState.isScannerOpen) {
+        BarcodeScannerSheet(
+            onCodeScanned = viewModel::onBarcodeScanned,
+            onDismiss = viewModel::closeScanner,
+            title = "Asociar Código al Ingreso"
+        )
     }
 }
 

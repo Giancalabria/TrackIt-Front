@@ -42,7 +42,6 @@ fun FleetScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Header con acción de automatización
             Surface(
                 tonalElevation = 2.dp,
                 shadowElevation = 2.dp,
@@ -72,7 +71,7 @@ fun FleetScreen(
                         } else {
                             Icon(Icons.Default.AutoMode, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("Generar Rutas del Día (Auto)")
+                            Text("Generar Rutas del Día")
                         }
                     }
                 }

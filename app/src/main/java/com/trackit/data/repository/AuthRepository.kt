@@ -12,7 +12,6 @@ class AuthRepository : IAuthRepository {
     override val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
     override suspend fun login(email: String, password: String): User? {
-        delay(500) // Simulate network delay
         if (password.isBlank()) {
             return null
         }

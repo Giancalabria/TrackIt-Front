@@ -18,9 +18,11 @@ data class IntakeUiState(
     val size: PackageSize = PackageSize.MEDIUM,
     val isFragile: Boolean = false,
     val scheduledDate: LocalDate = LocalDate.now().plusDays(1),
+    val barcode: String = "",
     val isSizeMenuExpanded: Boolean = false,
     val successMessage: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val isScannerOpen: Boolean = false
 )
 
 class IntakeViewModel(
@@ -53,14 +55,28 @@ class IntakeViewModel(
         _uiState.update { it.copy(scheduledDate = date) }
     }
 
-    fun submitPackage() {
-        val currentState = _uiState.value
-        if (currentState.clientName.isBlank() || currentState.address.isBlank()) {
-            _uiState.update { it.copy(errorMessage = "Completá cliente y dirección.") }
+    fun openScanner() {
+        if (_uiState.value.clientName.isBlank() || _uiState.value.address.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Completá cliente y dirección antes de escanear.") }
             return
         }
+        _uiState.update { it.copy(isScannerOpen = true) }
+    }
 
+    fun closeScanner() {
+        _uiState.update { it.copy(isScannerOpen = false) }
+    }
+
+    fun onBarcodeScanned(code: String) {
+        _uiState.update { it.copy(barcode = code, isScannerOpen = false) }
+        submitPackage()
+    }
+
+    private fun submitPackage() {
+        val currentState = _uiState.value
+        
         viewModelScope.launch {
+            // En una implementación real, guardaríamos el barcode también
             packageRepository.addPackage(
                 clientName = currentState.clientName.trim(),
                 address = currentState.address.trim(),
@@ -73,10 +89,11 @@ class IntakeViewModel(
                 it.copy(
                     clientName = "",
                     address = "",
+                    barcode = "",
                     size = PackageSize.MEDIUM,
                     isFragile = false,
                     scheduledDate = LocalDate.now().plusDays(1),
-                    successMessage = "Paquete registrado correctamente.",
+                    successMessage = "Paquete registrado correctamente con código: ${currentState.barcode}",
                     errorMessage = null
                 )
             }

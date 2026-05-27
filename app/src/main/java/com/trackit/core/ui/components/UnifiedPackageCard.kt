@@ -4,7 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -73,7 +72,7 @@ fun UnifiedPackageCard(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(Modifier.width(4.dp))
-                            Text("Cargar", style = MaterialTheme.typography.labelMedium)
+                            Text("Escanear", style = MaterialTheme.typography.labelMedium)
                         }
                     }
                     PackageStatus.CARGADO -> {
@@ -90,20 +89,22 @@ fun UnifiedPackageCard(
                         }
                     }
                     PackageStatus.EN_CAMINO -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Button(
+                            onClick = onActionClick,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            modifier = Modifier.height(36.dp)
+                        ) {
                             Icon(
-                                Icons.Default.LocalShipping,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
+                                Icons.Default.QrCodeScanner, 
+                                contentDescription = null, 
+                                modifier = Modifier.size(18.dp)
                             )
                             Spacer(Modifier.width(4.dp))
-                            Text(
-                                "En camino",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Text("Escanear", style = MaterialTheme.typography.labelMedium)
                         }
                     }
                     PackageStatus.ENTREGADO -> {

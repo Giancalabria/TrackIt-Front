@@ -1,24 +1,10 @@
 package com.trackit.feature.driver.detail
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,9 +13,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.trackit.core.ui.components.BarcodeScannerSheet
 import com.trackit.core.ui.components.MapPlaceholder
 import com.trackit.core.ui.components.PackageStatusChip
 import com.trackit.data.model.PackageSize
+import com.trackit.data.model.PackageStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,7 +36,7 @@ fun PackageDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Detalle y escáner") },
+                title = { Text("Detalle de Paquete") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -60,13 +48,20 @@ fun PackageDetailScreen(
             )
         },
         floatingActionButton = {
-            if (uiState.packageItem != null && !uiState.scanCompleted) {
-                ExtendedFloatingActionButton(
-                    onClick = viewModel::simulateScan,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ) {
-                    Text("Escanear")
+            val pkg = uiState.packageItem
+            if (pkg != null && !uiState.scanCompleted) {
+                // El botón de acción (FAB) solo debe aparecer en los mismos estados
+                // que el botón de escaneo de la lista principal (Asignado y En Camino).
+                if (pkg.status == PackageStatus.ASIGNADO || pkg.status == PackageStatus.EN_CAMINO) {
+                    ExtendedFloatingActionButton(
+                        onClick = viewModel::openScanner,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = "Escanear")
+                    }
                 }
             }
         }
@@ -139,6 +134,20 @@ fun PackageDetailScreen(
                 }
             }
         }
+    }
+
+    if (uiState.isScannerOpen) {
+        val scannerTitle = when (uiState.packageItem?.status) {
+            PackageStatus.ASIGNADO -> "Escanear para Cargar"
+            PackageStatus.EN_CAMINO -> "Escanear para Entregar"
+            else -> "Escanear Paquete"
+        }
+
+        BarcodeScannerSheet(
+            onCodeScanned = viewModel::onCodeScanned,
+            onDismiss = viewModel::closeScanner,
+            title = scannerTitle
+        )
     }
 }
 

@@ -41,11 +41,6 @@ class RouteViewModel : ViewModel() {
             val driverPackages = allPackages
                 .filter { it.assignedDriverId == currentUser.id }
                 .sortedWith(compareBy<Package> { 
-                    // Orden de importancia en la lista:
-                    // 1. En camino (arriba)
-                    // 2. Cargado
-                    // 3. Asignado (pendiente cargar)
-                    // 4. Entregado (abajo)
                     when (it.status) {
                         PackageStatus.EN_CAMINO -> 0
                         PackageStatus.CARGADO -> 1
@@ -53,7 +48,7 @@ class RouteViewModel : ViewModel() {
                         PackageStatus.ENTREGADO -> 3
                         else -> 4
                     }
-                }.thenBy { it.eta }) // Luego por horario
+                }.thenBy { it.eta })
             
             _uiState.update { state ->
                 state.copy(
@@ -64,9 +59,17 @@ class RouteViewModel : ViewModel() {
         }.launchIn(viewModelScope)
     }
 
-    fun loadPackage(packageId: String) {
+    fun loadPackage(packageId: String, code: String) {
+        // En una app real validaríamos el código aquí
         viewModelScope.launch {
             packageRepository.updateStatus(packageId, PackageStatus.CARGADO)
+        }
+    }
+
+    fun deliverPackage(packageId: String, code: String) {
+        // En una app real validaríamos el código aquí
+        viewModelScope.launch {
+            packageRepository.updateStatus(packageId, PackageStatus.ENTREGADO)
         }
     }
 }

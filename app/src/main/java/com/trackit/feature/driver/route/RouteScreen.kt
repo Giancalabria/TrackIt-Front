@@ -10,7 +10,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.trackit.core.ui.components.BarcodeScannerSheet
 import com.trackit.core.ui.components.UnifiedPackageCard
+import com.trackit.data.model.Package
 import com.trackit.data.model.PackageStatus
 
 @Composable
@@ -19,6 +21,7 @@ fun RouteScreen(
     viewModel: RouteViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var scanningPackage by remember { mutableStateOf<Package?>(null) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         if (uiState.isLoading) {
@@ -40,7 +43,7 @@ fun RouteScreen(
             ) {
                 item {
                     Text(
-                        text = "Mi Hoja de Ruta",
+                        text = "Mi Ruta de Hoy",
                         style = MaterialTheme.typography.headlineSmall,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
@@ -50,14 +53,34 @@ fun RouteScreen(
                     UnifiedPackageCard(
                         packageItem = packageItem,
                         onActionClick = { 
-                            if (packageItem.status == PackageStatus.ASIGNADO) {
-                                viewModel.loadPackage(packageItem.id)
-                            }
+                            scanningPackage = packageItem
                         },
                         onCardClick = { onPackageClick(packageItem.id) }
                     )
                 }
             }
         }
+    }
+
+    // Scanner Dialog Logic
+    scanningPackage?.let { pkg ->
+        val scannerTitle = when (pkg.status) {
+            PackageStatus.ASIGNADO -> "Escanear para Cargar"
+            PackageStatus.EN_CAMINO -> "Escanear para Entregar"
+            else -> "Escanear Paquete"
+        }
+
+        BarcodeScannerSheet(
+            title = scannerTitle,
+            onCodeScanned = { code ->
+                if (pkg.status == PackageStatus.ASIGNADO) {
+                    viewModel.loadPackage(pkg.id, code)
+                } else if (pkg.status == PackageStatus.EN_CAMINO) {
+                    viewModel.deliverPackage(pkg.id, code)
+                }
+                scanningPackage = null
+            },
+            onDismiss = { scanningPackage = null }
+        )
     }
 }

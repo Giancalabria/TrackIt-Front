@@ -16,7 +16,8 @@ import kotlinx.coroutines.launch
 data class PackageDetailUiState(
     val packageItem: Package? = null,
     val isLoading: Boolean = true,
-    val scanCompleted: Boolean = false
+    val scanCompleted: Boolean = false,
+    val isScannerOpen: Boolean = false
 )
 
 class PackageDetailViewModel(
@@ -29,6 +30,10 @@ class PackageDetailViewModel(
     val uiState: StateFlow<PackageDetailUiState> = _uiState.asStateFlow()
 
     init {
+        loadPackageDetail()
+    }
+
+    private fun loadPackageDetail() {
         viewModelScope.launch {
             val packageItem = packageRepository.getPackageById(packageId)
             _uiState.update {
@@ -40,15 +45,29 @@ class PackageDetailViewModel(
         }
     }
 
-    fun simulateScan() {
+    fun openScanner() {
+        _uiState.update { it.copy(isScannerOpen = true) }
+    }
+
+    fun closeScanner() {
+        _uiState.update { it.copy(isScannerOpen = false) }
+    }
+
+    fun onCodeScanned(code: String) {
+        val currentStatus = _uiState.value.packageItem?.status ?: return
+        
         viewModelScope.launch {
-            packageRepository.updateStatus(packageId, PackageStatus.ENTREGADO)
-            val updatedPackage = packageRepository.getPackageById(packageId)
-            _uiState.update {
-                it.copy(
-                    packageItem = updatedPackage,
-                    scanCompleted = true
-                )
+            val nextStatus = when (currentStatus) {
+                PackageStatus.ASIGNADO -> PackageStatus.CARGADO
+                PackageStatus.EN_CAMINO -> PackageStatus.ENTREGADO
+                else -> currentStatus
+            }
+            
+            if (nextStatus != currentStatus) {
+                packageRepository.updateStatus(packageId, nextStatus)
+                _uiState.update { it.copy(scanCompleted = true, isScannerOpen = false) }
+            } else {
+                _uiState.update { it.copy(isScannerOpen = false) }
             }
         }
     }
