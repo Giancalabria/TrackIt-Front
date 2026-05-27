@@ -11,6 +11,8 @@ object Routes {
     const val DRIVER_PROFILE = "driver/profile"
     const val DRIVER_DETAIL = "driver/detail/{packageId}"
 
+    const val WAREHOUSE_HOME = "warehouse/home"
+    const val WAREHOUSE_LOAD_TRUCK = "warehouse/load_truck"
     const val WAREHOUSE_INTAKE = "warehouse/intake"
     const val WAREHOUSE_HISTORY = "warehouse/history"
     const val WAREHOUSE_PROFILE = "warehouse/profile"

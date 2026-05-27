@@ -29,12 +29,11 @@ fun TrackItNavHost(
     // Definición de destinos para las BottomBars según el rol
     val driverItems = listOf(
         NavItem(Routes.DRIVER_ROUTE, "Ruta", Icons.Default.Route),
-        NavItem(Routes.DRIVER_MAP, "Mapa", Icons.Default.Map),
         NavItem(Routes.DRIVER_PROFILE, "Perfil", Icons.Default.Person)
     )
 
     val warehouseItems = listOf(
-        NavItem(Routes.WAREHOUSE_INTAKE, "Ingresos", Icons.Default.Inbox),
+        NavItem(Routes.WAREHOUSE_HOME, "Inicio", Icons.Default.Home),
         NavItem(Routes.WAREHOUSE_HISTORY, "Historial", Icons.Default.History),
         NavItem(Routes.WAREHOUSE_PROFILE, "Perfil", Icons.Default.Person)
     )
