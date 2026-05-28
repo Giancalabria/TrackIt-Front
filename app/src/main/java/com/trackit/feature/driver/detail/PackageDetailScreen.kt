@@ -109,11 +109,7 @@ fun PackageDetailScreen(
         floatingActionButton = {
             val pkg = uiState.packageItem
             if (pkg != null && !uiState.scanCompleted) {
-<<<<<<< HEAD
-                if (pkg.status == PackageStatus.ASIGNADO || pkg.status == PackageStatus.EN_CAMINO) {
-=======
                 if (pkg.status == PackageStatus.CARGADO || pkg.status == PackageStatus.EN_CAMINO) {
->>>>>>> 4ec6aeb0c00d4ffce04438f33116508558729978
                     ExtendedFloatingActionButton(
                         onClick = viewModel::openScanner,
                         containerColor = MaterialTheme.colorScheme.primary,
