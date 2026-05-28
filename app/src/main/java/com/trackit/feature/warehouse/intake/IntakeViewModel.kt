@@ -3,18 +3,21 @@ package com.trackit.feature.warehouse.intake
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackit.data.model.PackageSize
+import com.trackit.data.model.PhotonFeature
+import com.trackit.data.repository.IMapRepository
 import com.trackit.data.repository.IPackageRepository
+import com.trackit.data.repository.MapRepository
 import com.trackit.data.repository.PackageRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 data class IntakeUiState(
     val clientName: String = "",
     val address: String = "",
+    val addressSearchResults: List<PhotonFeature> = emptyList(),
+    val isSearchingAddress: Boolean = false,
     val size: PackageSize = PackageSize.MEDIUM,
     val isFragile: Boolean = false,
     val scheduledDate: LocalDate = LocalDate.now().plusDays(1),
@@ -25,18 +28,54 @@ data class IntakeUiState(
     val isScannerOpen: Boolean = false
 )
 
+@OptIn(FlowPreview::class)
 class IntakeViewModel(
-    private val packageRepository: IPackageRepository = PackageRepository.getInstance()
+    private val packageRepository: IPackageRepository = PackageRepository.getInstance(),
+    private val mapRepository: IMapRepository = MapRepository.getInstance()
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(IntakeUiState())
     val uiState: StateFlow<IntakeUiState> = _uiState.asStateFlow()
+
+    private val _addressQuery = MutableStateFlow("")
+
+    init {
+        viewModelScope.launch {
+            _addressQuery
+                .debounce(500L)
+                .filter { it.isNotBlank() && it.length > 3 }
+                .distinctUntilChanged()
+                .collect { query ->
+                    performAddressSearch(query)
+                }
+        }
+    }
 
     fun onClientNameChange(value: String) {
         _uiState.update { it.copy(clientName = value, errorMessage = null) }
     }
 
     fun onAddressChange(value: String) {
+        _addressQuery.value = value
         _uiState.update { it.copy(address = value, errorMessage = null) }
+        if (value.isBlank()) {
+            _uiState.update { it.copy(addressSearchResults = emptyList()) }
+        }
+    }
+
+    private suspend fun performAddressSearch(query: String) {
+        _uiState.update { it.copy(isSearchingAddress = true) }
+        try {
+            val response = mapRepository.searchAddress(query)
+            _uiState.update { it.copy(addressSearchResults = response.features, isSearchingAddress = false) }
+        } catch (e: Exception) {
+            _uiState.update { it.copy(isSearchingAddress = false) }
+        }
+    }
+
+    fun onAddressSelected(feature: PhotonFeature) {
+        val fullAddress = feature.properties.getDisplayName()
+        _uiState.update { it.copy(address = fullAddress, addressSearchResults = emptyList()) }
+        _addressQuery.value = "" // Stop searching
     }
 
     fun onSizeSelected(size: PackageSize) {
@@ -76,7 +115,6 @@ class IntakeViewModel(
         val currentState = _uiState.value
         
         viewModelScope.launch {
-            // En una implementación real, guardaríamos el barcode también
             packageRepository.addPackage(
                 clientName = currentState.clientName.trim(),
                 address = currentState.address.trim(),
@@ -89,6 +127,7 @@ class IntakeViewModel(
                 it.copy(
                     clientName = "",
                     address = "",
+                    addressSearchResults = emptyList(),
                     barcode = "",
                     size = PackageSize.MEDIUM,
                     isFragile = false,

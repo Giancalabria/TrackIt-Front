@@ -62,7 +62,6 @@ fun RouteScreen(
         }
     }
 
-    // Scanner Dialog Logic
     scanningPackage?.let { pkg ->
         val scannerTitle = when (pkg.status) {
             PackageStatus.ASIGNADO -> "Escanear para Cargar"

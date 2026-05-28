@@ -47,7 +47,6 @@ class AuthRepository : IAuthRepository {
     }
 
     override suspend fun logout() {
-        delay(200)
         _currentUser.value = null
     }
 
