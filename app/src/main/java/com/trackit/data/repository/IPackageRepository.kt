@@ -17,6 +17,8 @@ interface IPackageRepository {
     suspend fun addPackage(
         clientName: String,
         address: String,
+        destinationLat: Double?,
+        destinationLon: Double?,
         size: PackageSize,
         isFragile: Boolean,
         scheduledDate: LocalDate

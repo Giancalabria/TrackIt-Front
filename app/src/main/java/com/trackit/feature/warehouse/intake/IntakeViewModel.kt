@@ -16,6 +16,8 @@ import java.time.LocalDate
 data class IntakeUiState(
     val clientName: String = "",
     val address: String = "",
+    val destinationLat: Double? = null,
+    val destinationLon: Double? = null,
     val addressSearchResults: List<PhotonFeature> = emptyList(),
     val isSearchingAddress: Boolean = false,
     val size: PackageSize = PackageSize.MEDIUM,
@@ -65,7 +67,11 @@ class IntakeViewModel(
     private suspend fun performAddressSearch(query: String) {
         _uiState.update { it.copy(isSearchingAddress = true) }
         try {
-            val response = mapRepository.searchAddress(query)
+            val response = mapRepository.searchAddress(
+                query = query,
+                lat = -34.6037,
+                lon = -58.3816
+            )
             _uiState.update { it.copy(addressSearchResults = response.features, isSearchingAddress = false) }
         } catch (e: Exception) {
             _uiState.update { it.copy(isSearchingAddress = false) }
@@ -73,8 +79,16 @@ class IntakeViewModel(
     }
 
     fun onAddressSelected(feature: PhotonFeature) {
+        val coords = feature.geometry.asPoint() // [lon, lat]
         val fullAddress = feature.properties.getDisplayName()
-        _uiState.update { it.copy(address = fullAddress, addressSearchResults = emptyList()) }
+        _uiState.update {
+            it.copy(
+                address = fullAddress,
+                destinationLat = coords.getOrNull(1),
+                destinationLon = coords.getOrNull(0),
+                addressSearchResults = emptyList()
+            )
+        }
         _addressQuery.value = "" // Stop searching
     }
 
@@ -118,6 +132,8 @@ class IntakeViewModel(
             packageRepository.addPackage(
                 clientName = currentState.clientName.trim(),
                 address = currentState.address.trim(),
+                destinationLat = currentState.destinationLat,
+                destinationLon = currentState.destinationLon,
                 size = currentState.size,
                 isFragile = currentState.isFragile,
                 scheduledDate = currentState.scheduledDate
@@ -127,6 +143,8 @@ class IntakeViewModel(
                 it.copy(
                     clientName = "",
                     address = "",
+                    destinationLat = null,
+                    destinationLon = null,
                     addressSearchResults = emptyList(),
                     barcode = "",
                     size = PackageSize.MEDIUM,

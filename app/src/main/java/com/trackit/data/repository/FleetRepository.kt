@@ -14,6 +14,8 @@ class FleetRepository : IFleetRepository {
                 driverId = "USR-001",
                 driverName = "Juan Chofer",
                 plate = "AB123CD",
+                lastLat = -34.6039,
+                lastLon = -58.3923,
                 deliveredCount = 15,
                 totalCount = 20
             ),
@@ -22,6 +24,8 @@ class FleetRepository : IFleetRepository {
                 driverId = "USR-004", // Hypothetical other driver
                 driverName = "Pedro Sosa",
                 plate = "AC456EF",
+                lastLat = -34.5964,
+                lastLon = -58.4089,
                 deliveredCount = 8,
                 totalCount = 18
             ),
@@ -30,6 +34,8 @@ class FleetRepository : IFleetRepository {
                 driverId = "USR-005",
                 driverName = "Lucía Torres",
                 plate = "AD789GH",
+                lastLat = -34.6124,
+                lastLon = -58.3708,
                 deliveredCount = 12,
                 totalCount = 16
             ),
@@ -38,6 +44,8 @@ class FleetRepository : IFleetRepository {
                 driverId = "USR-006",
                 driverName = "Marcos Vega",
                 plate = "AE321IJ",
+                lastLat = -34.5882,
+                lastLon = -58.4390,
                 deliveredCount = 5,
                 totalCount = 14
             )

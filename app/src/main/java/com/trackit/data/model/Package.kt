@@ -21,6 +21,8 @@ data class Package(
     val id: String,
     val clientName: String,
     val address: String,
+    val destinationLat: Double? = null,
+    val destinationLon: Double? = null,
     val eta: String,
     val size: PackageSize,
     val isFragile: Boolean,

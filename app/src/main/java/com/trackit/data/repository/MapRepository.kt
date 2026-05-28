@@ -11,7 +11,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 interface IMapRepository {
-    suspend fun searchAddress(query: String): PhotonResponse
+    suspend fun searchAddress(query: String, lat: Double? = null, lon: Double? = null): PhotonResponse
     suspend fun getRoute(startLon: Double, startLat: Double, endLon: Double, endLat: Double): OrsResponse
 }
 
@@ -31,8 +31,13 @@ class MapRepository private constructor() : IMapRepository {
 
     private val orsApiKey = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjQzNDFiOTE0Mjk5MzQ5YWI5MTFmNDhkZmM5NDQ2MWYxIiwiaCI6Im11cm11cjY0In0="
 
-    override suspend fun searchAddress(query: String): PhotonResponse = withContext(Dispatchers.IO) {
-        photonApi.searchAddress(query)
+    override suspend fun searchAddress(query: String, lat: Double?, lon: Double?): PhotonResponse =
+        withContext(Dispatchers.IO) {
+            photonApi.searchAddress(
+                query = query,
+                lat = lat,
+                lon = lon
+            )
     }
 
     override suspend fun getRoute(

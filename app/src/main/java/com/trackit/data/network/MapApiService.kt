@@ -9,7 +9,9 @@ interface PhotonApi {
     @GET("https://photon.komoot.io/api/")
     suspend fun searchAddress(
         @Query("q") query: String,
-        @Query("limit") limit: Int = 5
+        @Query("limit") limit: Int = 5,
+        @Query("lat") lat: Double? = null,
+        @Query("lon") lon: Double? = null
     ): PhotonResponse
 }
 

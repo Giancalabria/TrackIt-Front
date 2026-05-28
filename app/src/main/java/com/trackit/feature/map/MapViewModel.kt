@@ -2,9 +2,14 @@ package com.trackit.feature.map
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trackit.data.model.Package
 import com.trackit.data.model.PhotonFeature
+import com.trackit.data.repository.AuthRepository
+import com.trackit.data.repository.IAuthRepository
 import com.trackit.data.repository.IMapRepository
 import com.trackit.data.repository.MapRepository
+import com.trackit.data.repository.IPackageRepository
+import com.trackit.data.repository.PackageRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -13,6 +18,7 @@ import org.osmdroid.util.GeoPoint
 data class MapUiState(
     val searchQuery: String = "",
     val searchResults: List<PhotonFeature> = emptyList(),
+    val assignedPackages: List<Package> = emptyList(),
     val isSearching: Boolean = false,
     val isLoadingRoute: Boolean = false,
     val routePoints: List<GeoPoint> = emptyList()
@@ -20,13 +26,16 @@ data class MapUiState(
 
 @OptIn(FlowPreview::class)
 class MapViewModel(
-    private val mapRepository: IMapRepository = MapRepository.getInstance()
+    private val mapRepository: IMapRepository = MapRepository.getInstance(),
+    private val packageRepository: IPackageRepository = PackageRepository.getInstance(),
+    private val authRepository: IAuthRepository = AuthRepository.getInstance()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MapUiState())
     val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
+    private val _userLocation = MutableStateFlow<Pair<Double, Double>?>(null)
 
     init {
         viewModelScope.launch {
@@ -38,6 +47,24 @@ class MapViewModel(
                     performSearch(query)
                 }
         }
+
+        observeAssignedPackages()
+    }
+
+    fun updateUserLocation(lat: Double, lon: Double) {
+        _userLocation.value = lat to lon
+    }
+
+    private fun observeAssignedPackages() {
+        combine(
+            packageRepository.packages,
+            authRepository.currentUser
+        ) { allPackages, currentUser ->
+            if (currentUser == null) return@combine emptyList()
+            allPackages.filter { it.assignedDriverId == currentUser.id }
+        }.onEach { pkgs ->
+            _uiState.update { it.copy(assignedPackages = pkgs) }
+        }.launchIn(viewModelScope)
     }
 
     fun onSearchQueryChange(query: String) {
@@ -51,7 +78,8 @@ class MapViewModel(
     private suspend fun performSearch(query: String) {
         _uiState.update { it.copy(isSearching = true) }
         try {
-            val response = mapRepository.searchAddress(query)
+            val (lat, lon) = _userLocation.value ?: (null to null)
+            val response = mapRepository.searchAddress(query = query, lat = lat, lon = lon)
             _uiState.update { it.copy(searchResults = response.features, isSearching = false) }
         } catch (e: Exception) {
             _uiState.update { it.copy(isSearching = false) }

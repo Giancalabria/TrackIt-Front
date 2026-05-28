@@ -15,11 +15,18 @@ data class PhotonFeature(
 data class PhotonProperties(
     val name: String?,
     val street: String?,
+    @SerializedName("housenumber")
+    val houseNumber: String?,
     val city: String?,
     val country: String?
 ) {
     fun getDisplayName(): String {
-        return listOfNotNull(name, street, city).joinToString(", ")
+        val streetWithNumber = when {
+            street.isNullOrBlank() -> null
+            houseNumber.isNullOrBlank() -> street
+            else -> "$street $houseNumber"
+        }
+        return listOfNotNull(name, streetWithNumber, city).joinToString(", ")
     }
 }
 
