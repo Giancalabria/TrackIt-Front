@@ -24,7 +24,6 @@ import kotlinx.coroutines.launch
 fun ProfileScreen(
     onLogout: () -> Unit
 ) {
-    // Usamos getInstance() ya que ahora es una clase, no un object
     val authRepository = AuthRepository.getInstance()
     val user by authRepository.currentUser.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
@@ -58,7 +57,6 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(32.dp))
         Button(
             onClick = {
-                // logout() ahora es suspend, necesitamos un scope
                 scope.launch {
                     authRepository.logout()
                     onLogout()

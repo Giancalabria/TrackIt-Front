@@ -51,7 +51,6 @@ class AuthRepository : IAuthRepository {
     }
 
     companion object {
-        // Singleton pattern for manual DI
         private var instance: AuthRepository? = null
         fun getInstance(): AuthRepository {
             if (instance == null) {

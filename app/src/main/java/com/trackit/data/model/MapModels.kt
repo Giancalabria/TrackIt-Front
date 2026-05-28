@@ -2,7 +2,6 @@ package com.trackit.data.model
 
 import com.google.gson.annotations.SerializedName
 
-// Photon API Models
 data class PhotonResponse(
     val features: List<PhotonFeature>
 )
@@ -30,7 +29,6 @@ data class PhotonProperties(
     }
 }
 
-// OpenRouteService API Models
 data class OrsRequest(
     val coordinates: List<List<Double>>
 )
@@ -43,7 +41,6 @@ data class OrsFeature(
     val geometry: Geometry
 )
 
-// Shared Geometry
 data class Geometry(
     val type: String,
     val coordinates: Any // Can be List<Double> for Point or List<List<Double>> for LineString

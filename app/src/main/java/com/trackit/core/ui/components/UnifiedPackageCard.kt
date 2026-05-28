@@ -34,7 +34,6 @@ fun UnifiedPackageCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Información del paquete (Izquierda)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = packageItem.clientName,
@@ -57,7 +56,6 @@ fun UnifiedPackageCard(
                 )
             }
 
-            // Estado/Acción (Derecha)
             Box(modifier = Modifier.widthIn(min = 100.dp), contentAlignment = Alignment.CenterEnd) {
                 when (packageItem.status) {
                     PackageStatus.ASIGNADO -> {

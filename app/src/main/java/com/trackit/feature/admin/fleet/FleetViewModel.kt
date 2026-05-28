@@ -28,7 +28,6 @@ class FleetViewModel(
     val uiState: StateFlow<FleetUiState> = _uiState.asStateFlow()
 
     init {
-        // Combinamos la lista de camiones con la lista de paquetes para calcular estadísticas reales
         combine(
             fleetRepository.trucks,
             packageRepository.packages

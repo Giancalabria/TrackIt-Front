@@ -26,7 +26,6 @@ fun TrackItNavHost(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
-    // Definición de destinos para las BottomBars según el rol
     val driverItems = listOf(
         NavItem(Routes.DRIVER_ROUTE, "Ruta", Icons.Default.Route),
         NavItem(Routes.DRIVER_MAP, "Mapa", Icons.Default.Map),
@@ -45,7 +44,6 @@ fun TrackItNavHost(
         NavItem(Routes.ADMIN_PROFILE, "Perfil", Icons.Default.Person)
     )
 
-    // Determinar qué barra mostrar
     val bottomBarItems = when {
         currentDestination?.hierarchy?.any { it.route == Routes.DRIVER } == true -> driverItems
         currentDestination?.hierarchy?.any { it.route == Routes.WAREHOUSE } == true -> warehouseItems
@@ -98,7 +96,6 @@ fun TrackItNavHost(
                 )
             }
 
-            // Integración de los grafos anidados
             driverNavGraph(navController)
             warehouseNavGraph(navController)
             adminNavGraph(navController)

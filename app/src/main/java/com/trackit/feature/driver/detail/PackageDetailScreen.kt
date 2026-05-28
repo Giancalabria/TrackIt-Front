@@ -109,8 +109,6 @@ fun PackageDetailScreen(
         floatingActionButton = {
             val pkg = uiState.packageItem
             if (pkg != null && !uiState.scanCompleted) {
-                // El botón de acción (FAB) solo debe aparecer en los mismos estados
-                // que el botón de escaneo de la lista principal (Asignado y En Camino).
                 if (pkg.status == PackageStatus.ASIGNADO || pkg.status == PackageStatus.EN_CAMINO) {
                     ExtendedFloatingActionButton(
                         onClick = viewModel::openScanner,

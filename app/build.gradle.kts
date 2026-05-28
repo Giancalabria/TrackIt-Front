@@ -3,6 +3,24 @@ plugins {
     alias(libs.plugins.kotlin.android)
 }
 
+fun readEnvFile(rootDir: File): Map<String, String> {
+    val envFile = rootDir.resolve(".env")
+    if (!envFile.exists()) return emptyMap()
+    return envFile.readLines()
+        .asSequence()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .filterNot { it.startsWith("#") }
+        .mapNotNull { line ->
+            val idx = line.indexOf("=")
+            if (idx <= 0) return@mapNotNull null
+            val key = line.substring(0, idx).trim()
+            val value = line.substring(idx + 1).trim()
+            key to value
+        }
+        .toMap()
+}
+
 android {
     namespace = "com.trackit"
     compileSdk = 35
@@ -13,6 +31,10 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+
+        val env = readEnvFile(rootProject.projectDir)
+        val orsKey = env["ORS_API_KEY"].orEmpty()
+        buildConfigField("String", "ORS_API_KEY", "\"$orsKey\"")
     }
 
     buildTypes {

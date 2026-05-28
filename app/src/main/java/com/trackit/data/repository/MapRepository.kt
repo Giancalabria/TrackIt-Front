@@ -5,6 +5,7 @@ import com.trackit.data.model.OrsResponse
 import com.trackit.data.model.PhotonResponse
 import com.trackit.data.network.OpenRouteServiceApi
 import com.trackit.data.network.PhotonApi
+import com.trackit.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
@@ -29,8 +30,6 @@ class MapRepository private constructor() : IMapRepository {
         .build()
         .create(OpenRouteServiceApi::class.java)
 
-    private val orsApiKey = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjQzNDFiOTE0Mjk5MzQ5YWI5MTFmNDhkZmM5NDQ2MWYxIiwiaCI6Im11cm11cjY0In0="
-
     override suspend fun searchAddress(query: String, lat: Double?, lon: Double?): PhotonResponse =
         withContext(Dispatchers.IO) {
             photonApi.searchAddress(
@@ -52,7 +51,7 @@ class MapRepository private constructor() : IMapRepository {
                 listOf(endLon, endLat)
             )
         )
-        orsApi.getRoute(orsApiKey, request)
+        orsApi.getRoute(BuildConfig.ORS_API_KEY, request)
     }
 
     companion object {

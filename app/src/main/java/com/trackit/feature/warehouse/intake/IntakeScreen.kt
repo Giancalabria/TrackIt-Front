@@ -58,7 +58,6 @@ fun IntakeScreen(
                 singleLine = true
             )
 
-            // Autocompletado de Dirección
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = uiState.address,

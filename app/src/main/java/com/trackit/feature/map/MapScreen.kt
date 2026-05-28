@@ -30,6 +30,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.trackit.BuildConfig
+import com.trackit.core.ui.theme.LightBlue
 import com.trackit.core.ui.theme.TerracottaOrange
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -65,21 +66,18 @@ private fun createBoxMarkerDrawable(
         bgPaint
     )
 
-    // Simple “package” icon (box) drawn with strokes
     val pad = 11f * context.resources.displayMetrics.density
     val left = pad
     val top = pad + (1f * context.resources.displayMetrics.density)
     val right = sizePx - pad
     val bottom = sizePx - pad
 
-    // Outer box
     canvas.drawRoundRect(
         RectF(left, top, right, bottom),
         4f * context.resources.displayMetrics.density,
         4f * context.resources.displayMetrics.density,
         iconPaint
     )
-    // Vertical seam
     canvas.drawLine(
         sizePx / 2f,
         top,
@@ -87,10 +85,44 @@ private fun createBoxMarkerDrawable(
         bottom,
         iconPaint
     )
-    // Top flap
     canvas.drawLine(left, top + (6f * context.resources.displayMetrics.density), right, top + (6f * context.resources.displayMetrics.density), iconPaint)
 
     return BitmapDrawable(context.resources, bitmap)
+}
+
+private fun createUserLocationIcon(
+    context: android.content.Context,
+    fillColor: Int
+): Bitmap {
+    val sizePx = (44 * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    val strokeWidth = 4.5f * context.resources.displayMetrics.density
+    val radius = (sizePx / 2f) - strokeWidth
+
+    val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        style = Paint.Style.STROKE
+        this.strokeWidth = strokeWidth
+    }
+    val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = fillColor
+        style = Paint.Style.FILL
+    }
+    val centerDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        style = Paint.Style.FILL
+    }
+
+    val cx = sizePx / 2f
+    val cy = sizePx / 2f
+
+    canvas.drawCircle(cx, cy, radius, fillPaint)
+    canvas.drawCircle(cx, cy, radius, strokePaint)
+    canvas.drawCircle(cx, cy, 3.2f * context.resources.displayMetrics.density, centerDotPaint)
+
+    return bitmap
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -116,7 +148,6 @@ fun MapScreen(
                 grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
     }
 
-    // Initialize Osmdroid Configuration
     LaunchedEffect(Unit) {
         Configuration.getInstance().userAgentValue = BuildConfig.APPLICATION_ID
     }
@@ -125,6 +156,12 @@ fun MapScreen(
     val myLocationOverlay = remember(hasLocationPermission) {
         if (!hasLocationPermission) return@remember null
         MyLocationNewOverlay(GpsMyLocationProvider(context), mapView).apply {
+            val person = createUserLocationIcon(
+                context = context,
+                fillColor = LightBlue.toArgb()
+            )
+            setPersonIcon(person)
+            setDirectionArrow(person, person)
             enableMyLocation()
             enableFollowLocation()
         }
@@ -166,7 +203,6 @@ fun MapScreen(
                 }
             }
         } else {
-            // 1. Mapa Base (Osmdroid)
             AndroidView(
                 factory = {
                     mapView.apply {
@@ -174,7 +210,6 @@ fun MapScreen(
                         setMultiTouchControls(true)
                         controller.setZoom(15.0)
 
-                        // Añadir capa de ubicación del usuario
                         myLocationOverlay?.let { overlays.add(it) }
                     }
                 },
@@ -184,15 +219,12 @@ fun MapScreen(
                         viewModel.updateUserLocation(loc.latitude, loc.longitude)
                     }
 
-                    // Limpiar solo rutas, manteniendo el overlay de ubicación
                     val overlaysToRemove = mv.overlays.filterIsInstance<Polyline>()
                     mv.overlays.removeAll(overlaysToRemove)
 
-                    // Limpiar marcadores (paquetes) para re-dibujar el estado actual
                     val markerOverlays = mv.overlays.filterIsInstance<Marker>()
                     mv.overlays.removeAll(markerOverlays)
 
-                    // Dibujar Paquetes (Markers)
                     uiState.assignedPackages.forEach { pkg ->
                         val lat = pkg.destinationLat
                         val lon = pkg.destinationLon
@@ -210,7 +242,6 @@ fun MapScreen(
                         }
                     }
 
-                    // Dibujar Ruta (Polyline)
                     if (uiState.routePoints.isNotEmpty()) {
                         val polyline = Polyline()
                         polyline.setPoints(uiState.routePoints)
@@ -225,7 +256,6 @@ fun MapScreen(
                 }
             )
 
-            // Botón para centrar en mi ubicación
             FloatingActionButton(
                 onClick = {
                     myLocationOverlay?.myLocation?.let {
@@ -241,7 +271,6 @@ fun MapScreen(
             }
         }
 
-        // 2. Componente de Búsqueda
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -292,7 +321,6 @@ fun MapScreen(
             }
         }
 
-        // Indicador de carga de ruta
         if (uiState.isLoadingRoute) {
             Box(
                 modifier = Modifier

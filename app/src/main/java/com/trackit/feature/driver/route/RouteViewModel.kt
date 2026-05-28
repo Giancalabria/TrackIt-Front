@@ -60,14 +60,12 @@ class RouteViewModel : ViewModel() {
     }
 
     fun loadPackage(packageId: String, code: String) {
-        // En una app real validaríamos el código aquí
         viewModelScope.launch {
             packageRepository.updateStatus(packageId, PackageStatus.CARGADO)
         }
     }
 
     fun deliverPackage(packageId: String, code: String) {
-        // En una app real validaríamos el código aquí
         viewModelScope.launch {
             packageRepository.updateStatus(packageId, PackageStatus.ENTREGADO)
         }

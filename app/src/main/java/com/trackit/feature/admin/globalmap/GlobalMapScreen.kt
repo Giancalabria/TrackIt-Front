@@ -3,6 +3,7 @@ package com.trackit.feature.admin.globalmap
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.drawable.BitmapDrawable
 import androidx.compose.foundation.layout.*
@@ -32,40 +33,44 @@ private fun createTruckMarkerDrawable(
     context: android.content.Context,
     backgroundColor: Int
 ): BitmapDrawable {
-    val sizePx = (42 * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
-    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val d = context.resources.displayMetrics.density
+    val widthPx = (44 * d).toInt().coerceAtLeast(1)
+    val heightPx = (54 * d).toInt().coerceAtLeast(1)
+    val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
 
-    val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = backgroundColor }
-    val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = backgroundColor
+        style = Paint.Style.FILL
+    }
+    val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = android.graphics.Color.WHITE
         style = Paint.Style.STROKE
-        strokeWidth = (2.5f * context.resources.displayMetrics.density)
-        strokeJoin = Paint.Join.ROUND
-        strokeCap = Paint.Cap.ROUND
+        strokeWidth = 3.5f * d
     }
 
-    canvas.drawOval(RectF(0f, 0f, sizePx.toFloat(), sizePx.toFloat()), bgPaint)
+    val centerX = widthPx / 2f
+    val circleRadius = 16f * d
+    val circleCenterY = 20f * d
+    val tipY = heightPx - (4f * d)
 
-    // Simple “truck” outline: cabin + box + wheels
-    val d = context.resources.displayMetrics.density
-    val left = 10f * d
-    val top = 16f * d
-    val right = sizePx - 10f * d
-    val bottom = sizePx - 14f * d
+    val pinPath = Path().apply {
+        addCircle(centerX, circleCenterY, circleRadius, Path.Direction.CW)
+        moveTo(centerX - circleRadius, circleCenterY + (4f * d))
+        quadTo(centerX, tipY, centerX + circleRadius, circleCenterY + (4f * d))
+        close()
+    }
+    canvas.drawPath(pinPath, bgPaint)
+    canvas.drawPath(pinPath, strokePaint)
 
-    // Cargo box
-    canvas.drawRoundRect(RectF(left, top, right - (8f * d), bottom), 3f * d, 3f * d, iconPaint)
-    // Cabin
-    canvas.drawRoundRect(
-        RectF(right - (12f * d), top + (6f * d), right, bottom),
-        3f * d,
-        3f * d,
-        iconPaint
-    )
-    // Wheels
-    canvas.drawCircle(left + (6f * d), bottom + (5f * d), 3f * d, iconPaint)
-    canvas.drawCircle(right - (14f * d), bottom + (5f * d), 3f * d, iconPaint)
+    val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        textAlign = Paint.Align.CENTER
+        textSize = 18f * d
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+    }
+    val textY = circleCenterY + (textPaint.textSize / 3f)
+    canvas.drawText("T", centerX, textY, textPaint)
 
     return BitmapDrawable(context.resources, bitmap)
 }
@@ -78,7 +83,6 @@ fun GlobalMapScreen(
     val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Initialize Osmdroid Configuration
         androidx.compose.runtime.LaunchedEffect(Unit) {
             Configuration.getInstance().userAgentValue = BuildConfig.APPLICATION_ID
         }
@@ -96,7 +100,6 @@ fun GlobalMapScreen(
             },
             modifier = Modifier.fillMaxSize(),
             update = { mv ->
-                // Clear truck markers before re-drawing current state
                 val markerOverlays = mv.overlays.filterIsInstance<Marker>()
                 mv.overlays.removeAll(markerOverlays)
 
@@ -182,5 +185,3 @@ fun MetricItem(label: String, value: String, color: Color) {
         )
     }
 }
-
-// MapMarkers() removed: we now render real truck markers on OSMDroid.
