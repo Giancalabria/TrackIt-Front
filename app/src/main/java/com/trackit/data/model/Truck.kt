@@ -15,6 +15,6 @@ data class Truck(
     val lastLat: Double? = null,
     @SerialName("last_lon")
     val lastLon: Double? = null,
-    val deliveredCount: Int,
-    val totalCount: Int
+    val deliveredCount: Int = 0,
+    val totalCount: Int = 0
 )

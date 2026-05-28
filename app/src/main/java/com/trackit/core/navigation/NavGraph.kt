@@ -17,6 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import com.trackit.data.model.UserRole
 import com.trackit.feature.auth.LoginScreen
 import com.trackit.feature.auth.RegisterScreen
+import com.trackit.feature.driver.truck.DriverTruckSetupScreen
 
 private data class NavItem(val route: String, val label: String, val icon: ImageVector)
 
@@ -85,7 +86,7 @@ fun TrackItNavHost(
                 LoginScreen(
                     onLoginSuccess = { user ->
                         val destination = when (user.role) {
-                            UserRole.DRIVER -> Routes.DRIVER
+                            UserRole.DRIVER -> Routes.DRIVER_SETUP_TRUCK
                             UserRole.WAREHOUSE -> Routes.WAREHOUSE
                             UserRole.ADMIN -> Routes.ADMIN
                         }
@@ -101,7 +102,7 @@ fun TrackItNavHost(
                 RegisterScreen(
                     onRegisterSuccess = { user ->
                         val destination = when (user.role) {
-                            UserRole.DRIVER -> Routes.DRIVER
+                            UserRole.DRIVER -> Routes.DRIVER_SETUP_TRUCK
                             UserRole.WAREHOUSE -> Routes.WAREHOUSE
                             UserRole.ADMIN -> Routes.ADMIN
                         }
@@ -111,6 +112,16 @@ fun TrackItNavHost(
                     },
                     onNavigateToLogin = {
                         navController.popBackStack()
+                    }
+                )
+            }
+
+            composable(Routes.DRIVER_SETUP_TRUCK) {
+                DriverTruckSetupScreen(
+                    onSetupComplete = {
+                        navController.navigate(Routes.DRIVER) {
+                            popUpTo(Routes.DRIVER_SETUP_TRUCK) { inclusive = true }
+                        }
                     }
                 )
             }

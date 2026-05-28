@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import java.util.UUID
 
 class SupabaseFleetRepository(
     private val supabase: SupabaseClient
@@ -37,6 +40,34 @@ class SupabaseFleetRepository(
         return _trucks.value.size
     }
 
+    override suspend fun getTruckForDriver(driverId: String): Truck? = withContext(Dispatchers.IO) {
+        supabase.from("trucks")
+            .select {
+                filter { eq("driver_id", driverId) }
+            }
+            .decodeSingleOrNull<Truck>()
+    }
+
+    override suspend fun createTruck(
+        driverId: String,
+        driverName: String,
+        plate: String
+    ): Truck? = withContext(Dispatchers.IO) {
+        val existing = getTruckForDriver(driverId)
+        if (existing != null) return@withContext existing
+
+        supabase.from("trucks").insert(
+            TruckInsertRow(
+                id = UUID.randomUUID().toString(),
+                driverId = driverId,
+                driverName = driverName,
+                plate = plate.trim().uppercase()
+            )
+        )
+        refreshTrucks()
+        getTruckForDriver(driverId)
+    }
+
     override suspend fun updateTruckLocation(truckId: String, lat: Double, lon: Double) {
         withContext(Dispatchers.IO) {
             supabase.from("trucks").update(
@@ -50,5 +81,13 @@ class SupabaseFleetRepository(
             refreshTrucks()
         }
     }
+
+    @Serializable
+    private data class TruckInsertRow(
+        val id: String,
+        @SerialName("driver_id") val driverId: String,
+        @SerialName("driver_name") val driverName: String,
+        val plate: String
+    )
 }
 

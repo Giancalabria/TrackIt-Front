@@ -70,16 +70,26 @@ class RegisterViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            val user = authRepository.register(
-                email = email,
-                password = s.password,
-                displayName = displayName,
-                role = s.role
-            )
-            if (user == null) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "No se pudo crear la cuenta.") }
-            } else {
-                _uiState.update { it.copy(isLoading = false, registeredUser = user) }
+            try {
+                val user = authRepository.register(
+                    email = email,
+                    password = s.password,
+                    displayName = displayName,
+                    role = s.role
+                )
+                if (user == null) {
+                    _uiState.update { it.copy(isLoading = false, errorMessage = "No se pudo crear la cuenta.") }
+                } else {
+                    _uiState.update { it.copy(isLoading = false, registeredUser = user) }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                val message = when {
+                    e.message?.contains("User already registered", ignoreCase = true) == true -> "El usuario ya está registrado."
+                    e.message?.contains("network", ignoreCase = true) == true -> "Error de conexión. Verificá tu internet."
+                    else -> "Error al crear la cuenta: ${e.localizedMessage ?: "desconocido"}"
+                }
+                _uiState.update { it.copy(isLoading = false, errorMessage = message) }
             }
         }
     }
