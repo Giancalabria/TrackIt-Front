@@ -22,7 +22,8 @@ data class MapUiState(
     val assignedPackages: List<Package> = emptyList(),
     val isSearching: Boolean = false,
     val isLoadingRoute: Boolean = false,
-    val routePoints: List<GeoPoint> = emptyList()
+    val routePoints: List<GeoPoint> = emptyList(),
+    val errorMessage: String? = null
 )
 
 @OptIn(FlowPreview::class)
@@ -70,20 +71,26 @@ class MapViewModel(
 
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
-        _uiState.update { it.copy(searchQuery = query) }
+        _uiState.update { it.copy(searchQuery = query, errorMessage = null) }
         if (query.isBlank()) {
             _uiState.update { it.copy(searchResults = emptyList()) }
         }
     }
 
     private suspend fun performSearch(query: String) {
-        _uiState.update { it.copy(isSearching = true) }
+        _uiState.update { it.copy(isSearching = true, errorMessage = null) }
         try {
             val (lat, lon) = _userLocation.value ?: (null to null)
             val response = mapRepository.searchAddress(query = query, lat = lat, lon = lon)
             _uiState.update { it.copy(searchResults = response.features, isSearching = false) }
         } catch (e: Exception) {
-            _uiState.update { it.copy(isSearching = false) }
+            e.printStackTrace()
+            _uiState.update {
+                it.copy(
+                    isSearching = false,
+                    errorMessage = "No se pudo buscar la dirección. Verificá tu conexión."
+                )
+            }
         }
     }
 
@@ -92,7 +99,14 @@ class MapViewModel(
         val destLon = coords[0]
         val destLat = coords[1]
 
-        _uiState.update { it.copy(searchResults = emptyList(), searchQuery = feature.properties.getDisplayName(), isLoadingRoute = true) }
+        _uiState.update {
+            it.copy(
+                searchResults = emptyList(),
+                searchQuery = feature.properties.getDisplayName(),
+                isLoadingRoute = true,
+                errorMessage = null
+            )
+        }
 
         viewModelScope.launch {
             try {
@@ -100,10 +114,16 @@ class MapViewModel(
                 val points = response.features.firstOrNull()?.geometry?.asLineString()?.map {
                     GeoPoint(it[1], it[0]) // ORS [lon, lat] -> Osmdroid GeoPoint(lat, lon)
                 } ?: emptyList()
-                
+
                 _uiState.update { it.copy(routePoints = points, isLoadingRoute = false) }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoadingRoute = false) }
+                e.printStackTrace()
+                _uiState.update {
+                    it.copy(
+                        isLoadingRoute = false,
+                        errorMessage = "No se pudo calcular la ruta. Reintentá."
+                    )
+                }
             }
         }
     }

@@ -295,6 +295,15 @@ fun MapScreen(
                 singleLine = true
             )
 
+            uiState.errorMessage?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
             if (uiState.searchResults.isNotEmpty()) {
                 Card(
                     modifier = Modifier

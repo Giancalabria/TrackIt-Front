@@ -32,6 +32,7 @@ fun AssignRouteScreen(
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
+            viewModel.consumeSuccess()
             onSuccess()
         }
     }

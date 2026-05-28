@@ -2,6 +2,7 @@ package com.trackit.feature.warehouse.intake
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trackit.core.AppConfig
 import com.trackit.data.model.PackageSize
 import com.trackit.data.model.PhotonFeature
 import com.trackit.data.repository.IMapRepository
@@ -28,7 +29,8 @@ data class IntakeUiState(
     val isSizeMenuExpanded: Boolean = false,
     val successMessage: String? = null,
     val errorMessage: String? = null,
-    val isScannerOpen: Boolean = false
+    val isScannerOpen: Boolean = false,
+    val isSubmitting: Boolean = false
 )
 
 @OptIn(FlowPreview::class)
@@ -66,16 +68,24 @@ class IntakeViewModel(
     }
 
     private suspend fun performAddressSearch(query: String) {
-        _uiState.update { it.copy(isSearchingAddress = true) }
+        _uiState.update { it.copy(isSearchingAddress = true, errorMessage = null) }
         try {
             val response = mapRepository.searchAddress(
                 query = query,
-                lat = -34.6037,
-                lon = -58.3816
+                lat = AppConfig.DEFAULT_GEOCODER_LAT,
+                lon = AppConfig.DEFAULT_GEOCODER_LON
             )
-            _uiState.update { it.copy(addressSearchResults = response.features, isSearchingAddress = false) }
+            _uiState.update {
+                it.copy(addressSearchResults = response.features, isSearchingAddress = false)
+            }
         } catch (e: Exception) {
-            _uiState.update { it.copy(isSearchingAddress = false) }
+            e.printStackTrace()
+            _uiState.update {
+                it.copy(
+                    isSearchingAddress = false,
+                    errorMessage = "No se pudo buscar la dirección. Verificá tu conexión."
+                )
+            }
         }
     }
 
@@ -104,7 +114,7 @@ class IntakeViewModel(
     fun onFragileChange(value: Boolean) {
         _uiState.update { it.copy(isFragile = value) }
     }
-    
+
     fun onScheduledDateChange(date: LocalDate) {
         _uiState.update { it.copy(scheduledDate = date) }
     }
@@ -128,8 +138,10 @@ class IntakeViewModel(
 
     private fun submitPackage() {
         val currentState = _uiState.value
-        
+
         viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+
             packageRepository.addPackage(
                 clientName = currentState.clientName.trim(),
                 address = currentState.address.trim(),
@@ -138,23 +150,34 @@ class IntakeViewModel(
                 size = currentState.size,
                 isFragile = currentState.isFragile,
                 scheduledDate = currentState.scheduledDate
+            ).fold(
+                onSuccess = {
+                    _uiState.update {
+                        it.copy(
+                            clientName = "",
+                            address = "",
+                            destinationLat = null,
+                            destinationLon = null,
+                            addressSearchResults = emptyList(),
+                            barcode = "",
+                            size = PackageSize.MEDIUM,
+                            isFragile = false,
+                            scheduledDate = LocalDate.now().plusDays(1),
+                            successMessage = "Paquete registrado correctamente con código: ${currentState.barcode}",
+                            errorMessage = null,
+                            isSubmitting = false
+                        )
+                    }
+                },
+                onFailure = {
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            errorMessage = "No se pudo registrar el paquete. Reintentá."
+                        )
+                    }
+                }
             )
-
-            _uiState.update {
-                it.copy(
-                    clientName = "",
-                    address = "",
-                    destinationLat = null,
-                    destinationLon = null,
-                    addressSearchResults = emptyList(),
-                    barcode = "",
-                    size = PackageSize.MEDIUM,
-                    isFragile = false,
-                    scheduledDate = LocalDate.now().plusDays(1),
-                    successMessage = "Paquete registrado correctamente con código: ${currentState.barcode}",
-                    errorMessage = null
-                )
-            }
         }
     }
 

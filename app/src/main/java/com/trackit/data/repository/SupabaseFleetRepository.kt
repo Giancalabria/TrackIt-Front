@@ -1,6 +1,7 @@
 package com.trackit.data.repository
 
 import com.trackit.data.model.Truck
+import com.trackit.data.model.TruckInsertRow
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.CoroutineScope
@@ -11,8 +12,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import java.util.UUID
 
 class SupabaseFleetRepository(
@@ -64,9 +63,9 @@ class SupabaseFleetRepository(
         driverName: String,
         plate: String
     ): Truck? = withContext(Dispatchers.IO) {
-        try {
+        runCatching {
             val existing = getTruckForDriver(driverId)
-            if (existing != null) return@withContext existing
+            if (existing != null) return@runCatching existing
 
             supabase.from("trucks").insert(
                 TruckInsertRow(
@@ -78,32 +77,24 @@ class SupabaseFleetRepository(
             )
             refreshTrucks()
             getTruckForDriver(driverId)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        }.getOrElse {
+            it.printStackTrace()
             null
         }
     }
 
-    override suspend fun updateTruckLocation(truckId: String, lat: Double, lon: Double) {
-        withContext(Dispatchers.IO) {
-            supabase.from("trucks").update(
-                mapOf(
-                    "last_lat" to lat,
-                    "last_lon" to lon
-                )
-            ) {
-                filter { eq("id", truckId) }
+    override suspend fun updateTruckLocation(truckId: String, lat: Double, lon: Double): Result<Unit> =
+        runCatching {
+            withContext(Dispatchers.IO) {
+                supabase.from("trucks").update(
+                    mapOf(
+                        "last_lat" to lat,
+                        "last_lon" to lon
+                    )
+                ) {
+                    filter { eq("id", truckId) }
+                }
+                refreshTrucks()
             }
-            refreshTrucks()
         }
-    }
-
-    @Serializable
-    private data class TruckInsertRow(
-        val id: String,
-        @SerialName("driver_id") val driverId: String,
-        @SerialName("driver_name") val driverName: String,
-        val plate: String
-    )
 }
-

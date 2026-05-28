@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
+import java.util.UUID
 
 class SupabasePackageRepository(
     private val supabase: SupabaseClient
@@ -58,7 +59,7 @@ class SupabasePackageRepository(
             .sortedBy { it.eta }
     }
 
-    override suspend fun updateStatus(id: String, status: PackageStatus) {
+    override suspend fun updateStatus(id: String, status: PackageStatus): Result<Unit> = runCatching {
         withContext(Dispatchers.IO) {
             val updates = if (status == PackageStatus.EN_DEPOSITO) {
                 mapOf("status" to status.name, "assigned_driver_id" to null)
@@ -72,25 +73,25 @@ class SupabasePackageRepository(
         }
     }
 
-    override suspend fun assignPackagesToDriver(packageIds: List<String>, driverId: String) {
-        withContext(Dispatchers.IO) {
-            packageIds.forEach { pkgId ->
-                supabase.from("packages").update(
-                    mapOf(
-                        "status" to PackageStatus.ASIGNADO.name,
-                        "assigned_driver_id" to driverId
-                    )
-                ) {
-                    filter { eq("id", pkgId) }
+    override suspend fun assignPackagesToDriver(packageIds: List<String>, driverId: String): Result<Unit> =
+        runCatching {
+            withContext(Dispatchers.IO) {
+                packageIds.forEach { pkgId ->
+                    supabase.from("packages").update(
+                        mapOf(
+                            "status" to PackageStatus.ASIGNADO.name,
+                            "assigned_driver_id" to driverId
+                        )
+                    ) {
+                        filter { eq("id", pkgId) }
+                    }
                 }
+                refreshPackages()
             }
-            refreshPackages()
         }
-    }
 
-    override suspend fun triggerRouteOptimization(targetDate: LocalDate) {
+    override suspend fun triggerRouteOptimization(targetDate: LocalDate): Result<Unit> = runCatching {
         withContext(Dispatchers.IO) {
-            // Manual trigger for the same Edge Function the daily cron will call.
             supabase.functions.invoke(
                 "daily-route-optimizer",
                 body = mapOf("targetDate" to targetDate.toString())
@@ -107,16 +108,15 @@ class SupabasePackageRepository(
         size: PackageSize,
         isFragile: Boolean,
         scheduledDate: LocalDate
-    ) {
+    ): Result<Unit> = runCatching {
         withContext(Dispatchers.IO) {
-            val nextId = "PKG-${(_packages.value.size + 1).toString().padStart(3, '0')}"
             val newPackage = Package(
-                id = nextId,
+                id = UUID.randomUUID().toString(),
                 clientName = clientName,
                 address = address,
                 destinationLat = destinationLat,
                 destinationLon = destinationLon,
-                eta = "15:00",
+                eta = "",
                 size = size,
                 isFragile = isFragile,
                 status = PackageStatus.EN_DEPOSITO,
@@ -128,7 +128,7 @@ class SupabasePackageRepository(
         }
     }
 
-    override suspend fun updatePackage(updatedPackage: Package) {
+    override suspend fun updatePackage(updatedPackage: Package): Result<Unit> = runCatching {
         withContext(Dispatchers.IO) {
             supabase.from("packages").update(updatedPackage) {
                 filter { eq("id", updatedPackage.id) }
@@ -137,7 +137,7 @@ class SupabasePackageRepository(
         }
     }
 
-    override suspend fun deletePackage(packageId: String) {
+    override suspend fun deletePackage(packageId: String): Result<Unit> = runCatching {
         withContext(Dispatchers.IO) {
             supabase.from("packages").delete {
                 filter { eq("id", packageId) }
@@ -156,4 +156,3 @@ class SupabasePackageRepository(
         return _packages.value.count { it.status != PackageStatus.ENTREGADO }
     }
 }
-

@@ -2,19 +2,18 @@ package com.trackit.feature.driver.truck
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trackit.data.repository.IAuthRepository
 import com.trackit.data.repository.IFleetRepository
+import com.trackit.data.repository.SupabaseAuthRepository
 import com.trackit.data.repository.SupabaseFleetRepository
 import com.trackit.data.repository.SupabaseLocator
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
-import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 
 data class DriverTruckSetupUiState(
     val driverName: String = "",
@@ -27,7 +26,8 @@ data class DriverTruckSetupUiState(
 
 class DriverTruckSetupViewModel(
     private val supabase: SupabaseClient = SupabaseLocator.client,
-    private val fleetRepository: IFleetRepository = SupabaseFleetRepository(SupabaseLocator.client)
+    private val fleetRepository: IFleetRepository = SupabaseFleetRepository(SupabaseLocator.client),
+    private val authRepository: IAuthRepository = SupabaseAuthRepository(SupabaseLocator.client)
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DriverTruckSetupUiState())
@@ -58,7 +58,7 @@ class DriverTruckSetupViewModel(
                 return@launch
             }
 
-            val driverName = resolveDriverName(authedUser.id)
+            val driverName = resolveDriverName()
             val truck = fleetRepository.createTruck(
                 driverId = authedUser.id,
                 driverName = driverName,
@@ -96,7 +96,7 @@ class DriverTruckSetupViewModel(
                     return@launch
                 }
 
-                val driverName = resolveDriverName(authedUser.id)
+                val driverName = resolveDriverName()
                 val existing = fleetRepository.getTruckForDriver(authedUser.id)
 
                 _uiState.update {
@@ -118,32 +118,15 @@ class DriverTruckSetupViewModel(
         }
     }
 
-    private suspend fun resolveDriverName(userId: String): String {
-        val authedUser = supabase.auth.currentUserOrNull() ?: return "Chofer"
+    private suspend fun resolveDriverName(): String {
+        val profileUser = authRepository.resolveUserFromSession()
+        if (profileUser != null) return profileUser.displayName
 
-        try {
-            val profile = supabase.from("profiles")
-                .select {
-                    filter { eq("id", userId) }
-                }
-                .decodeSingleOrNull<ProfileRow>()
-
-            if (profile != null) return profile.displayName
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-
-        return authedUser.userMetadata
+        return supabase.auth.currentUserOrNull()
+            ?.userMetadata
             ?.get("display_name")
             ?.toString()
             ?.removeSurrounding("\"")
             ?: "Chofer"
     }
-
-    @Serializable
-    private data class ProfileRow(
-        val id: String,
-        @SerialName("display_name") val displayName: String,
-        val role: String
-    )
 }

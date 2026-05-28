@@ -7,7 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import com.trackit.core.navigation.TrackItNavHost
 import com.trackit.core.ui.theme.TrackItTheme
 
-class  MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

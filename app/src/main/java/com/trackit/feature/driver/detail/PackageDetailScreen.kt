@@ -135,14 +135,17 @@ fun PackageDetailScreen(
                 }
             }
 
-            uiState.packageItem == null -> {
+            uiState.errorMessage != null && uiState.packageItem == null -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Paquete no encontrado.")
+                    Text(
+                        text = uiState.errorMessage!!,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
 
@@ -232,6 +235,13 @@ fun PackageDetailScreen(
                             )
                         }
                         PackageStatusChip(status = packageItem.status)
+                        uiState.errorMessage?.let { message ->
+                            Text(
+                                text = message,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                     }
                 }
             }

@@ -17,7 +17,8 @@ data class FleetUiState(
     val trucks: List<Truck> = emptyList(),
     val isCronJobRunning: Boolean = false,
     val cronJobSuccess: Boolean = false,
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val errorMessage: String? = null
 )
 
 class FleetViewModel(
@@ -46,9 +47,22 @@ class FleetViewModel(
 
     fun runDailyCronJob() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isCronJobRunning = true) }
+            _uiState.update { it.copy(isCronJobRunning = true, errorMessage = null, cronJobSuccess = false) }
+
             packageRepository.triggerRouteOptimization(LocalDate.now())
-            _uiState.update { it.copy(isCronJobRunning = false, cronJobSuccess = true) }
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(isCronJobRunning = false, cronJobSuccess = true)
+                    }
+                }
+                .onFailure {
+                    _uiState.update {
+                        it.copy(
+                            isCronJobRunning = false,
+                            errorMessage = "No se pudo ejecutar la optimización de rutas."
+                        )
+                    }
+                }
         }
     }
 

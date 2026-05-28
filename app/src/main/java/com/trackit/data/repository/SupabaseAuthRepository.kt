@@ -1,7 +1,9 @@
 package com.trackit.data.repository
 
+import com.trackit.data.model.ProfileRow
 import com.trackit.data.model.User
 import com.trackit.data.model.UserRole
+import com.trackit.data.model.toUserRoleOrNull
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.providers.builtin.Email
@@ -9,8 +11,8 @@ import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 
 class SupabaseAuthRepository(
     private val supabase: SupabaseClient
@@ -18,13 +20,6 @@ class SupabaseAuthRepository(
 
     private val _currentUser = MutableStateFlow<User?>(null)
     override val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
-
-    @Serializable
-    private data class ProfileRow(
-        val id: String,
-        @SerialName("display_name") val displayName: String,
-        val role: String
-    )
 
     override suspend fun login(email: String, password: String): User? {
         val trimmedEmail = email.trim()
@@ -40,54 +35,7 @@ class SupabaseAuthRepository(
             return null
         }
 
-        val authedUser = supabase.auth.currentUserOrNull() ?: return null
-
-        // Try to get data from profiles table
-        var displayName: String? = null
-        var role: UserRole? = null
-
-        try {
-            val profile = supabase.from("profiles")
-                .select {
-                    filter {
-                        eq("id", authedUser.id)
-                    }
-                }
-                .decodeSingleOrNull<ProfileRow>()
-
-            if (profile != null) {
-                displayName = profile.displayName
-                role = when (profile.role.uppercase()) {
-                    "DRIVER" -> UserRole.DRIVER
-                    "WAREHOUSE" -> UserRole.WAREHOUSE
-                    "ADMIN" -> UserRole.ADMIN
-                    else -> null
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            // Profile table fetch failed (likely RLS), we'll try metadata next
-        }
-
-        // Fallback to metadata if profile fetch failed or role is null
-        if (role == null) {
-            val metadata = authedUser.userMetadata
-            displayName = metadata?.get("display_name")?.toString()?.removeSurrounding("\"") ?: "Usuario"
-            val roleStr = metadata?.get("role")?.toString()?.removeSurrounding("\"")
-            role = when (roleStr?.uppercase()) {
-                "DRIVER" -> UserRole.DRIVER
-                "WAREHOUSE" -> UserRole.WAREHOUSE
-                "ADMIN" -> UserRole.ADMIN
-                else -> UserRole.DRIVER // Default fallback
-            }
-        }
-
-        val user = User(
-            id = authedUser.id,
-            email = trimmedEmail.lowercase(),
-            displayName = displayName ?: "Usuario",
-            role = role
-        )
+        val user = resolveUserFromSession(trimmedEmail.lowercase()) ?: return null
         _currentUser.value = user
         return user
     }
@@ -106,20 +54,18 @@ class SupabaseAuthRepository(
             supabase.auth.signUpWith(Email) {
                 this.email = trimmedEmail
                 this.password = password
-                // Store in metadata as fallback
-                data = kotlinx.serialization.json.buildJsonObject {
-                    put("display_name", kotlinx.serialization.json.JsonPrimitive(trimmedName))
-                    put("role", kotlinx.serialization.json.JsonPrimitive(role.name))
+                data = buildJsonObject {
+                    put("display_name", JsonPrimitive(trimmedName))
+                    put("role", JsonPrimitive(role.name))
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            throw e // Let ViewModel handle registration errors (e.g. user already exists)
+            throw e
         }
 
         val authedUser = supabase.auth.currentUserOrNull() ?: return null
 
-        // Try to insert into profiles table, but don't fail if RLS prevents it
         try {
             supabase.from("profiles").insert(
                 ProfileRow(
@@ -129,7 +75,6 @@ class SupabaseAuthRepository(
                 )
             )
         } catch (e: Exception) {
-            // Log RLS or other database errors but allow registration to succeed
             println("Warning: Could not insert into profiles table: ${e.message}")
             e.printStackTrace()
         }
@@ -142,6 +87,51 @@ class SupabaseAuthRepository(
         )
         _currentUser.value = user
         return user
+    }
+
+    override suspend fun resolveUserFromSession(): User? {
+        val authedUser = supabase.auth.currentUserOrNull() ?: return null
+        val email = authedUser.email?.trim()?.lowercase().orEmpty()
+        return resolveUserFromSession(email)
+    }
+
+    private suspend fun resolveUserFromSession(fallbackEmail: String): User? {
+        val authedUser = supabase.auth.currentUserOrNull() ?: return null
+
+        var displayName: String? = null
+        var role: UserRole? = null
+
+        try {
+            val profile = supabase.from("profiles")
+                .select {
+                    filter {
+                        eq("id", authedUser.id)
+                    }
+                }
+                .decodeSingleOrNull<ProfileRow>()
+
+            if (profile != null) {
+                displayName = profile.displayName
+                role = profile.role.toUserRoleOrNull()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        if (role == null) {
+            println("TrackIt: profiles table unavailable or empty; using auth metadata fallback for user ${authedUser.id}")
+            val metadata = authedUser.userMetadata
+            displayName = metadata?.get("display_name")?.toString()?.removeSurrounding("\"") ?: "Usuario"
+            val roleStr = metadata?.get("role")?.toString()?.removeSurrounding("\"")
+            role = roleStr.toUserRoleOrNull() ?: UserRole.DRIVER
+        }
+
+        return User(
+            id = authedUser.id,
+            email = fallbackEmail.ifBlank { authedUser.email?.trim()?.lowercase().orEmpty() },
+            displayName = displayName ?: "Usuario",
+            role = role ?: UserRole.DRIVER
+        )
     }
 
     override suspend fun logout() {

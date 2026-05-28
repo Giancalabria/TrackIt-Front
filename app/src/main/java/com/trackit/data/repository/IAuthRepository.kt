@@ -8,5 +8,6 @@ interface IAuthRepository {
     val currentUser: StateFlow<User?>
     suspend fun login(email: String, password: String): User?
     suspend fun register(email: String, password: String, displayName: String, role: UserRole): User?
+    suspend fun resolveUserFromSession(): User?
     suspend fun logout()
 }

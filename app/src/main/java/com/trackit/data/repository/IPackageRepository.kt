@@ -11,9 +11,9 @@ interface IPackageRepository {
     suspend fun getPackageById(id: String): Package?
     suspend fun getPackagesByStatus(status: PackageStatus): List<Package>
     suspend fun getDriverPackages(driverId: String): List<Package>
-    suspend fun updateStatus(id: String, status: PackageStatus)
-    suspend fun assignPackagesToDriver(packageIds: List<String>, driverId: String)
-    suspend fun triggerRouteOptimization(targetDate: LocalDate)
+    suspend fun updateStatus(id: String, status: PackageStatus): Result<Unit>
+    suspend fun assignPackagesToDriver(packageIds: List<String>, driverId: String): Result<Unit>
+    suspend fun triggerRouteOptimization(targetDate: LocalDate): Result<Unit>
     suspend fun addPackage(
         clientName: String,
         address: String,
@@ -22,9 +22,9 @@ interface IPackageRepository {
         size: PackageSize,
         isFragile: Boolean,
         scheduledDate: LocalDate
-    )
-    suspend fun updatePackage(updatedPackage: Package)
-    suspend fun deletePackage(packageId: String)
+    ): Result<Unit>
+    suspend fun updatePackage(updatedPackage: Package): Result<Unit>
+    suspend fun deletePackage(packageId: String): Result<Unit>
     suspend fun getDeliveredCount(): Int
     suspend fun getPendingCount(): Int
 }
