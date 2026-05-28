@@ -9,7 +9,7 @@ data class Truck(
     @SerialName("driver_id")
     val driverId: String,
     @SerialName("driver_name")
-    val driverName: String,
+    val driverName: String = "",
     val plate: String,
     @SerialName("last_lat")
     val lastLat: Double? = null,

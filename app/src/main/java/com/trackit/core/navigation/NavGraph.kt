@@ -63,8 +63,15 @@ fun TrackItNavHost(
                             label = { Text(item.label) },
                             selected = selected,
                             onClick = {
+                                val graphRoot = when {
+                                    currentDestination?.hierarchy?.any { it.route == Routes.DRIVER } == true ->
+                                        Routes.DRIVER
+                                    currentDestination?.hierarchy?.any { it.route == Routes.WAREHOUSE } == true ->
+                                        Routes.WAREHOUSE
+                                    else -> Routes.ADMIN
+                                }
                                 navController.navigate(item.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
+                                    popUpTo(graphRoot) {
                                         saveState = true
                                     }
                                     launchSingleTop = true

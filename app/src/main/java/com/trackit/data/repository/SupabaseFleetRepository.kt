@@ -31,8 +31,13 @@ class SupabaseFleetRepository(
     }
 
     private suspend fun refreshTrucks() {
-        val all = supabase.from("trucks").select().decodeList<Truck>()
-        _trucks.value = all
+        try {
+            val all = supabase.from("trucks").select().decodeList<Truck>()
+            _trucks.value = all
+        } catch (e: Exception) {
+            e.printStackTrace()
+            _trucks.value = emptyList()
+        }
     }
 
     override suspend fun getActiveTruckCount(): Int {
@@ -41,11 +46,17 @@ class SupabaseFleetRepository(
     }
 
     override suspend fun getTruckForDriver(driverId: String): Truck? = withContext(Dispatchers.IO) {
-        supabase.from("trucks")
-            .select {
-                filter { eq("driver_id", driverId) }
-            }
-            .decodeSingleOrNull<Truck>()
+        try {
+            supabase.from("trucks")
+                .select {
+                    filter { eq("driver_id", driverId) }
+                }
+                .decodeList<Truck>()
+                .firstOrNull()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 
     override suspend fun createTruck(
@@ -53,19 +64,24 @@ class SupabaseFleetRepository(
         driverName: String,
         plate: String
     ): Truck? = withContext(Dispatchers.IO) {
-        val existing = getTruckForDriver(driverId)
-        if (existing != null) return@withContext existing
+        try {
+            val existing = getTruckForDriver(driverId)
+            if (existing != null) return@withContext existing
 
-        supabase.from("trucks").insert(
-            TruckInsertRow(
-                id = UUID.randomUUID().toString(),
-                driverId = driverId,
-                driverName = driverName,
-                plate = plate.trim().uppercase()
+            supabase.from("trucks").insert(
+                TruckInsertRow(
+                    id = UUID.randomUUID().toString(),
+                    driverId = driverId,
+                    driverName = driverName,
+                    plate = plate.trim().uppercase()
+                )
             )
-        )
-        refreshTrucks()
-        getTruckForDriver(driverId)
+            refreshTrucks()
+            getTruckForDriver(driverId)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 
     override suspend fun updateTruckLocation(truckId: String, lat: Double, lon: Double) {

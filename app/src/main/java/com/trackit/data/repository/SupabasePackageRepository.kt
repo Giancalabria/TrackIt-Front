@@ -32,8 +32,13 @@ class SupabasePackageRepository(
     }
 
     private suspend fun refreshPackages() {
-        val all = supabase.from("packages").select().decodeList<Package>()
-        _packages.value = all
+        try {
+            val all = supabase.from("packages").select().decodeList<Package>()
+            _packages.value = all
+        } catch (e: Exception) {
+            e.printStackTrace()
+            _packages.value = emptyList()
+        }
     }
 
     override suspend fun getPackageById(id: String): Package? {

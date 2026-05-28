@@ -16,6 +16,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -28,9 +31,11 @@ fun DriverTruckSetupScreen(
     viewModel: DriverTruckSetupViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var hasNavigated by remember { mutableStateOf(false) }
 
-    LaunchedEffect(uiState.setupComplete) {
-        if (uiState.setupComplete) {
+    LaunchedEffect(uiState.setupComplete, uiState.isCheckingExisting) {
+        if (!uiState.isCheckingExisting && uiState.setupComplete && !hasNavigated) {
+            hasNavigated = true
             onSetupComplete()
             viewModel.consumeSetupComplete()
         }
@@ -47,54 +52,53 @@ fun DriverTruckSetupScreen(
             CircularProgressIndicator()
             Spacer(modifier = Modifier.height(16.dp))
             Text("Verificando tu camión…")
-            return@Column
-        }
-
-        Text(
-            text = "Registrar tu camión",
-            style = MaterialTheme.typography.headlineSmall
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Hola, ${uiState.driverName}. Completá los datos de tu vehículo para aparecer en la flota.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(32.dp))
-
-        OutlinedTextField(
-            value = uiState.plate,
-            onValueChange = viewModel::onPlateChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Patente") },
-            placeholder = { Text("Ej: AB123CD") },
-            singleLine = true,
-            enabled = !uiState.isSaving
-        )
-
-        uiState.errorMessage?.let { message ->
-            Spacer(modifier = Modifier.height(12.dp))
+        } else {
             Text(
-                text = message,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium
+                text = "Registrar tu camión",
+                style = MaterialTheme.typography.headlineSmall
             )
-        }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Hola, ${uiState.driverName}. Completá los datos de tu vehículo para aparecer en la flota.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(32.dp))
 
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(
-            onClick = viewModel::saveTruck,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !uiState.isSaving
-        ) {
-            if (uiState.isSaving) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
+            OutlinedTextField(
+                value = uiState.plate,
+                onValueChange = viewModel::onPlateChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Patente") },
+                placeholder = { Text("Ej: AB123CD") },
+                singleLine = true,
+                enabled = !uiState.isSaving
+            )
+
+            uiState.errorMessage?.let { message ->
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium
                 )
-            } else {
-                Text("Guardar camión")
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = viewModel::saveTruck,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isSaving
+            ) {
+                if (uiState.isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text("Guardar camión")
+                }
             }
         }
     }

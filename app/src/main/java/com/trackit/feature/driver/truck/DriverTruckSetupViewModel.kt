@@ -84,26 +84,36 @@ class DriverTruckSetupViewModel(
 
     private fun checkExistingTruck() {
         viewModelScope.launch {
-            val authedUser = supabase.auth.currentUserOrNull()
-            if (authedUser == null) {
+            try {
+                val authedUser = supabase.auth.currentUserOrNull()
+                if (authedUser == null) {
+                    _uiState.update {
+                        it.copy(
+                            isCheckingExisting = false,
+                            errorMessage = "Sesión no válida. Volvé a iniciar sesión."
+                        )
+                    }
+                    return@launch
+                }
+
+                val driverName = resolveDriverName(authedUser.id)
+                val existing = fleetRepository.getTruckForDriver(authedUser.id)
+
+                _uiState.update {
+                    it.copy(
+                        driverName = driverName,
+                        isCheckingExisting = false,
+                        setupComplete = existing != null
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
                 _uiState.update {
                     it.copy(
                         isCheckingExisting = false,
-                        errorMessage = "Sesión no válida. Volvé a iniciar sesión."
+                        errorMessage = "No se pudo verificar tu camión. Reintentá en unos segundos."
                     )
                 }
-                return@launch
-            }
-
-            val driverName = resolveDriverName(authedUser.id)
-            val existing = fleetRepository.getTruckForDriver(authedUser.id)
-
-            _uiState.update {
-                it.copy(
-                    driverName = driverName,
-                    isCheckingExisting = false,
-                    setupComplete = existing != null
-                )
             }
         }
     }
