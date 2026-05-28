@@ -87,8 +87,8 @@ UI (Compose) → ViewModel → IAuthRepository / IPackageRepository / IFleetRepo
 - **Kotlin** + **Jetpack Compose** (Material 3)
 - **MVVM** + patrón repositorio
 - **Navigation Compose**
-- **Supabase Kotlin** (`auth-kt`, `postgrest-kt`, `realtime-kt`, `functions-kt`)
-- **Ktor** (motor OkHttp) + **kotlinx.serialization**
+- **Supabase Kotlin 2.6.1** (`gotrue-kt`, `postgrest-kt`, `realtime-kt`, `functions-kt`) — alineado con **Kotlin 1.9.23**
+- **Ktor 2.3.12** (motor OkHttp + WebSockets) + **kotlinx-serialization-json 1.6.3**
 - **Retrofit** + Gson (Photon y ORS directions en el cliente)
 - **OSMDroid**, **CameraX**, **ML Kit Barcode**
 
@@ -274,8 +274,4 @@ Casos de uso críticos:
 - El rol en registro lo elige el usuario; en producción conviene restringir quién puede registrarse como `ADMIN`.
 - Algunas transiciones de estado (`CARGADO` → `EN_CAMINO`) pueden no estar expuestas en toda la UI.
 
----
 
-## Licencia
-
-Proyecto académico / demo salvo que los mantenedores agreguen una licencia explícita.

@@ -2,10 +2,9 @@ package com.trackit
 
 import android.app.Application
 import com.trackit.data.repository.SupabaseLocator
-import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.functions.Functions
+import io.github.jan.supabase.gotrue.GoTrue
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
 import io.ktor.client.engine.okhttp.OkHttp
@@ -13,7 +12,7 @@ import io.ktor.client.plugins.websocket.WebSockets
 
 class TrackItApp : Application() {
 
-    lateinit var supabase: SupabaseClient
+    lateinit var supabase: io.github.jan.supabase.SupabaseClient
         private set
 
     override fun onCreate() {
@@ -27,7 +26,7 @@ class TrackItApp : Application() {
                 install(WebSockets)
             }
             httpEngine = OkHttp.create()
-            install(Auth)
+            install(GoTrue)
             install(Postgrest)
             install(Realtime)
             install(Functions)
@@ -36,4 +35,3 @@ class TrackItApp : Application() {
         SupabaseLocator.client = supabase
     }
 }
-

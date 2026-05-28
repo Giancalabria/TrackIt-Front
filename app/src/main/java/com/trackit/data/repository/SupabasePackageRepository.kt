@@ -87,7 +87,7 @@ class SupabasePackageRepository(
         withContext(Dispatchers.IO) {
             // Manual trigger for the same Edge Function the daily cron will call.
             supabase.functions.invoke(
-                function = "daily-route-optimizer",
+                "daily-route-optimizer",
                 body = mapOf("targetDate" to targetDate.toString())
             )
             refreshPackages()

@@ -78,6 +78,14 @@ android {
     }
 }
 
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:1.9.23")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.23")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.23")
+    }
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -100,13 +108,14 @@ dependencies {
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp.logging)
 
-    // Supabase
+    // Supabase 2.x (Kotlin 1.9 + Ktor 2.3)
     implementation(platform(libs.supabase.bom))
-    implementation(libs.supabase.auth)
+    implementation(libs.supabase.gotrue)
     implementation(libs.supabase.postgrest)
     implementation(libs.supabase.realtime)
     implementation(libs.supabase.functions)
     implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.websockets)
 
     // CameraX
     implementation(libs.androidx.camera.core)

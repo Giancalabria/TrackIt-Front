@@ -3,8 +3,8 @@ package com.trackit.data.repository
 import com.trackit.data.model.User
 import com.trackit.data.model.UserRole
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.gotrue.gotrue
+import io.github.jan.supabase.gotrue.providers.builtin.Email
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,14 +30,13 @@ class SupabaseAuthRepository(
         val trimmedEmail = email.trim()
         if (trimmedEmail.isBlank() || password.isBlank()) return null
 
-        supabase.auth.signInWith(Email) {
+        supabase.gotrue.loginWith(Email) {
             this.email = trimmedEmail
             this.password = password
         }
 
-        val authedUser = supabase.auth.currentUserOrNull() ?: return null
+        val authedUser = supabase.gotrue.currentUserOrNull() ?: return null
 
-        // RLS ensures non-admin users will only see their own profile row.
         val profiles = supabase.from("profiles").select().decodeList<ProfileRow>()
         val profile = profiles.firstOrNull { it.id == authedUser.id } ?: return null
 
@@ -68,14 +67,13 @@ class SupabaseAuthRepository(
         val trimmedName = displayName.trim()
         if (trimmedEmail.isBlank() || password.isBlank() || trimmedName.isBlank()) return null
 
-        supabase.auth.signUpWith(Email) {
+        supabase.gotrue.signUpWith(Email) {
             this.email = trimmedEmail
             this.password = password
         }
 
-        val authedUser = supabase.auth.currentUserOrNull() ?: return null
+        val authedUser = supabase.gotrue.currentUserOrNull() ?: return null
 
-        // Insert profile row for the new user.
         supabase.from("profiles").insert(
             mapOf(
                 "id" to authedUser.id,
@@ -95,8 +93,7 @@ class SupabaseAuthRepository(
     }
 
     override suspend fun logout() {
-        supabase.auth.signOut()
+        supabase.gotrue.logout()
         _currentUser.value = null
     }
 }
-
