@@ -3,8 +3,9 @@ package com.trackit.feature.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackit.data.model.User
-import com.trackit.data.repository.AuthRepository
 import com.trackit.data.repository.IAuthRepository
+import com.trackit.data.repository.SupabaseAuthRepository
+import com.trackit.data.repository.SupabaseLocator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +21,7 @@ data class LoginUiState(
 )
 
 class LoginViewModel(
-    private val authRepository: IAuthRepository = AuthRepository.getInstance()
+    private val authRepository: IAuthRepository = SupabaseAuthRepository(SupabaseLocator.client)
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
@@ -48,7 +49,7 @@ class LoginViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage = "Credenciales inválidas. Probá con chofer@trackit.com, deposito@trackit.com o admin@trackit.com."
+                        errorMessage = "Credenciales inválidas."
                     )
                 }
             } else {

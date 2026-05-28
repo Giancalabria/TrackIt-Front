@@ -16,6 +16,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.trackit.data.model.UserRole
 import com.trackit.feature.auth.LoginScreen
+import com.trackit.feature.auth.RegisterScreen
 
 private data class NavItem(val route: String, val label: String, val icon: ImageVector)
 
@@ -91,6 +92,25 @@ fun TrackItNavHost(
                         navController.navigate(destination) {
                             popUpTo(Routes.LOGIN) { inclusive = true }
                         }
+                    },
+                    onNavigateToRegister = { navController.navigate(Routes.REGISTER) }
+                )
+            }
+
+            composable(Routes.REGISTER) {
+                RegisterScreen(
+                    onRegisterSuccess = { user ->
+                        val destination = when (user.role) {
+                            UserRole.DRIVER -> Routes.DRIVER
+                            UserRole.WAREHOUSE -> Routes.WAREHOUSE
+                            UserRole.ADMIN -> Routes.ADMIN
+                        }
+                        navController.navigate(destination) {
+                            popUpTo(Routes.LOGIN) { inclusive = true }
+                        }
+                    },
+                    onNavigateToLogin = {
+                        navController.popBackStack()
                     }
                 )
             }

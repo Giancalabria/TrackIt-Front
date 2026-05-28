@@ -5,10 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.trackit.data.model.Package
 import com.trackit.data.model.PackageStatus
 import com.trackit.data.model.Truck
-import com.trackit.data.repository.FleetRepository
 import com.trackit.data.repository.IFleetRepository
 import com.trackit.data.repository.IPackageRepository
-import com.trackit.data.repository.PackageRepository
+import com.trackit.data.repository.SupabaseFleetRepository
+import com.trackit.data.repository.SupabaseLocator
+import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,8 +33,8 @@ data class LoadTruckUiState(
 )
 
 class LoadTruckViewModel(
-    private val packageRepository: IPackageRepository = PackageRepository.getInstance(),
-    private val fleetRepository: IFleetRepository = FleetRepository.getInstance()
+    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client),
+    private val fleetRepository: IFleetRepository = SupabaseFleetRepository(SupabaseLocator.client)
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoadTruckUiState())
     val uiState: StateFlow<LoadTruckUiState> = _uiState.asStateFlow()

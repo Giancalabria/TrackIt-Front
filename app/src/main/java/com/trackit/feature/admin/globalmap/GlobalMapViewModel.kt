@@ -3,10 +3,11 @@ package com.trackit.feature.admin.globalmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackit.data.model.Truck
-import com.trackit.data.repository.FleetRepository
 import com.trackit.data.repository.IFleetRepository
 import com.trackit.data.repository.IPackageRepository
-import com.trackit.data.repository.PackageRepository
+import com.trackit.data.repository.SupabaseFleetRepository
+import com.trackit.data.repository.SupabaseLocator
+import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,8 +26,8 @@ data class GlobalMapUiState(
 )
 
 class GlobalMapViewModel(
-    private val packageRepository: IPackageRepository = PackageRepository.getInstance(),
-    private val fleetRepository: IFleetRepository = FleetRepository.getInstance()
+    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client),
+    private val fleetRepository: IFleetRepository = SupabaseFleetRepository(SupabaseLocator.client)
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GlobalMapUiState())

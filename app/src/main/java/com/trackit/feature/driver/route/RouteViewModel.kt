@@ -4,10 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackit.data.model.Package
 import com.trackit.data.model.PackageStatus
-import com.trackit.data.repository.AuthRepository
 import com.trackit.data.repository.IAuthRepository
 import com.trackit.data.repository.IPackageRepository
-import com.trackit.data.repository.PackageRepository
+import com.trackit.data.repository.SupabaseAuthRepository
+import com.trackit.data.repository.SupabaseLocator
+import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -18,8 +19,8 @@ data class RouteUiState(
 
 class RouteViewModel : ViewModel() {
 
-    private val packageRepository: IPackageRepository = PackageRepository.getInstance()
-    private val authRepository: IAuthRepository = AuthRepository.getInstance()
+    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client)
+    private val authRepository: IAuthRepository = SupabaseAuthRepository(SupabaseLocator.client)
 
     private val _uiState = MutableStateFlow(RouteUiState())
     val uiState: StateFlow<RouteUiState> = _uiState.asStateFlow()

@@ -4,10 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackit.data.model.Package
 import com.trackit.data.model.PackageStatus
-import com.trackit.data.repository.FleetRepository
 import com.trackit.data.repository.IFleetRepository
 import com.trackit.data.repository.IPackageRepository
-import com.trackit.data.repository.PackageRepository
+import com.trackit.data.repository.SupabaseFleetRepository
+import com.trackit.data.repository.SupabaseLocator
+import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -24,8 +25,8 @@ data class AssignRouteUiState(
 
 class AssignRouteViewModel : ViewModel() {
 
-    private val packageRepository: IPackageRepository = PackageRepository.getInstance()
-    private val fleetRepository: IFleetRepository = FleetRepository.getInstance()
+    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client)
+    private val fleetRepository: IFleetRepository = SupabaseFleetRepository(SupabaseLocator.client)
 
     private val _uiState = MutableStateFlow(AssignRouteUiState())
     val uiState: StateFlow<AssignRouteUiState> = _uiState.asStateFlow()

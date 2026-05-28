@@ -4,10 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackit.data.model.PackageStatus
 import com.trackit.data.model.Truck
-import com.trackit.data.repository.FleetRepository
 import com.trackit.data.repository.IFleetRepository
 import com.trackit.data.repository.IPackageRepository
-import com.trackit.data.repository.PackageRepository
+import com.trackit.data.repository.SupabaseFleetRepository
+import com.trackit.data.repository.SupabaseLocator
+import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -20,8 +21,8 @@ data class FleetUiState(
 )
 
 class FleetViewModel(
-    private val fleetRepository: IFleetRepository = FleetRepository.getInstance(),
-    private val packageRepository: IPackageRepository = PackageRepository.getInstance()
+    private val fleetRepository: IFleetRepository = SupabaseFleetRepository(SupabaseLocator.client),
+    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client)
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FleetUiState())
@@ -46,8 +47,7 @@ class FleetViewModel(
     fun runDailyCronJob() {
         viewModelScope.launch {
             _uiState.update { it.copy(isCronJobRunning = true) }
-            val driverIds = _uiState.value.trucks.map { it.driverId }
-            packageRepository.simulateDailyCronJob(LocalDate.now(), driverIds)
+            packageRepository.triggerRouteOptimization(LocalDate.now())
             _uiState.update { it.copy(isCronJobRunning = false, cronJobSuccess = true) }
         }
     }

@@ -17,14 +17,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trackit.data.model.UserRole
-import com.trackit.data.repository.AuthRepository
+import com.trackit.data.repository.SupabaseAuthRepository
+import com.trackit.data.repository.SupabaseLocator
 import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit
 ) {
-    val authRepository = AuthRepository.getInstance()
+    val authRepository = SupabaseAuthRepository(SupabaseLocator.client)
     val user by authRepository.currentUser.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 

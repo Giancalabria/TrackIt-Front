@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 fun readEnvFile(rootDir: File): Map<String, String> {
@@ -35,6 +36,11 @@ android {
         val env = readEnvFile(rootProject.projectDir)
         val orsKey = env["ORS_API_KEY"].orEmpty()
         buildConfigField("String", "ORS_API_KEY", "\"$orsKey\"")
+
+        val supabaseUrl = env["SUPABASE_URL"].orEmpty()
+        val supabaseAnonKey = env["SUPABASE_ANON_KEY"].orEmpty()
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
     }
 
     buildTypes {
@@ -86,12 +92,21 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.json)
 
     // Maps and Networking
     implementation(libs.osmdroid)
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp.logging)
+
+    // Supabase
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.auth)
+    implementation(libs.supabase.postgrest)
+    implementation(libs.supabase.realtime)
+    implementation(libs.supabase.functions)
+    implementation(libs.ktor.client.okhttp)
 
     // CameraX
     implementation(libs.androidx.camera.core)

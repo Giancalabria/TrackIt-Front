@@ -6,7 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.trackit.data.model.Package
 import com.trackit.data.model.PackageStatus
 import com.trackit.data.repository.IPackageRepository
-import com.trackit.data.repository.PackageRepository
+import com.trackit.data.repository.SupabaseLocator
+import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,7 +25,7 @@ class PackageDetailViewModel(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val packageId: String = checkNotNull(savedStateHandle["packageId"])
-    private val packageRepository: IPackageRepository = PackageRepository.getInstance()
+    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client)
 
     private val _uiState = MutableStateFlow(PackageDetailUiState())
     val uiState: StateFlow<PackageDetailUiState> = _uiState.asStateFlow()

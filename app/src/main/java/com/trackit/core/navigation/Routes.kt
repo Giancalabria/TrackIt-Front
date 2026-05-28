@@ -2,6 +2,7 @@ package com.trackit.core.navigation
 
 object Routes {
     const val LOGIN = "login"
+    const val REGISTER = "register"
     const val DRIVER = "driver"
     const val WAREHOUSE = "warehouse"
     const val ADMIN = "admin"

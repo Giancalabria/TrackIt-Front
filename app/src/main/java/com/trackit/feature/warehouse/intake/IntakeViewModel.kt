@@ -7,7 +7,8 @@ import com.trackit.data.model.PhotonFeature
 import com.trackit.data.repository.IMapRepository
 import com.trackit.data.repository.IPackageRepository
 import com.trackit.data.repository.MapRepository
-import com.trackit.data.repository.PackageRepository
+import com.trackit.data.repository.SupabaseLocator
+import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -32,7 +33,7 @@ data class IntakeUiState(
 
 @OptIn(FlowPreview::class)
 class IntakeViewModel(
-    private val packageRepository: IPackageRepository = PackageRepository.getInstance(),
+    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client),
     private val mapRepository: IMapRepository = MapRepository.getInstance()
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(IntakeUiState())

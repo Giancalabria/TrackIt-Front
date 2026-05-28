@@ -1,5 +1,7 @@
 package com.trackit.data.network
 
+import com.trackit.data.model.OrsOptimizationRequest
+import com.trackit.data.model.OrsOptimizationResponse
 import com.trackit.data.model.OrsRequest
 import com.trackit.data.model.OrsResponse
 import com.trackit.data.model.PhotonResponse
@@ -21,4 +23,12 @@ interface OpenRouteServiceApi {
         @Header("Authorization") apiKey: String,
         @Body request: OrsRequest
     ): OrsResponse
+}
+
+interface OpenRouteServiceOptimizationApi {
+    @POST("https://api.openrouteservice.org/optimization")
+    suspend fun optimizeRoutes(
+        @Header("Authorization") apiKey: String,
+        @Body request: OrsOptimizationRequest
+    ): OrsOptimizationResponse
 }

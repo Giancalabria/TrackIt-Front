@@ -13,7 +13,7 @@ interface IPackageRepository {
     suspend fun getDriverPackages(driverId: String): List<Package>
     suspend fun updateStatus(id: String, status: PackageStatus)
     suspend fun assignPackagesToDriver(packageIds: List<String>, driverId: String)
-    suspend fun simulateDailyCronJob(currentDate: LocalDate, driverIds: List<String>)
+    suspend fun triggerRouteOptimization(targetDate: LocalDate)
     suspend fun addPackage(
         clientName: String,
         address: String,
