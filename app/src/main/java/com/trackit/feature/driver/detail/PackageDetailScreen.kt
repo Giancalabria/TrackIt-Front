@@ -109,7 +109,11 @@ fun PackageDetailScreen(
         floatingActionButton = {
             val pkg = uiState.packageItem
             if (pkg != null && !uiState.scanCompleted) {
+<<<<<<< HEAD
                 if (pkg.status == PackageStatus.ASIGNADO || pkg.status == PackageStatus.EN_CAMINO) {
+=======
+                if (pkg.status == PackageStatus.CARGADO || pkg.status == PackageStatus.EN_CAMINO) {
+>>>>>>> 4ec6aeb0c00d4ffce04438f33116508558729978
                     ExtendedFloatingActionButton(
                         onClick = viewModel::openScanner,
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -117,7 +121,7 @@ fun PackageDetailScreen(
                     ) {
                         Icon(Icons.Default.QrCodeScanner, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Escanear")
+                        Text(text = "Entregar")
                     }
                 }
             }
@@ -216,6 +220,14 @@ fun PackageDetailScreen(
                             text = "Tamaño: ${packageItem.size.toLabel()}",
                             style = MaterialTheme.typography.bodyMedium
                         )
+                        Text(
+                            text = "Peso estimado: 4,5 kg",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "Dimensiones: 40 x 30 x 20 cm",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                         if (packageItem.isFragile) {
                             SuggestionChip(
                                 onClick = {},
@@ -232,7 +244,7 @@ fun PackageDetailScreen(
 
     if (uiState.isScannerOpen) {
         val scannerTitle = when (uiState.packageItem?.status) {
-            PackageStatus.ASIGNADO -> "Escanear para Cargar"
+            PackageStatus.CARGADO -> "Escanear para Entregar"
             PackageStatus.EN_CAMINO -> "Escanear para Entregar"
             else -> "Escanear Paquete"
         }

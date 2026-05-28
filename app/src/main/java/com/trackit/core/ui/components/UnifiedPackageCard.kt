@@ -20,7 +20,9 @@ fun UnifiedPackageCard(
     packageItem: Package,
     onActionClick: () -> Unit,
     onCardClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    actionLabel: String = "Entregar",
+    actionStatuses: Set<PackageStatus> = setOf(PackageStatus.CARGADO, PackageStatus.EN_CAMINO)
 ) {
     ElevatedCard(
         modifier = modifier
@@ -59,50 +61,34 @@ fun UnifiedPackageCard(
             Box(modifier = Modifier.widthIn(min = 100.dp), contentAlignment = Alignment.CenterEnd) {
                 when (packageItem.status) {
                     PackageStatus.ASIGNADO -> {
-                        Button(
-                            onClick = onActionClick,
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.QrCodeScanner, 
-                                contentDescription = null, 
-                                modifier = Modifier.size(18.dp)
+                        if (packageItem.status in actionStatuses) {
+                            PackageActionButton(
+                                label = actionLabel,
+                                onClick = onActionClick
                             )
-                            Spacer(Modifier.width(4.dp))
-                            Text("Escanear", style = MaterialTheme.typography.labelMedium)
+                        } else {
+                            PackageStatusChip(packageItem.status)
                         }
                     }
                     PackageStatus.CARGADO -> {
-                        Surface(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            shape = MaterialTheme.shapes.small
-                        ) {
-                            Text(
-                                "Cargado",
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                        if (packageItem.status in actionStatuses) {
+                            PackageActionButton(
+                                label = actionLabel,
+                                onClick = onActionClick
                             )
+                        } else {
+                            PackageStatusChip(packageItem.status)
                         }
                     }
                     PackageStatus.EN_CAMINO -> {
-                        Button(
-                            onClick = onActionClick,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            ),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.QrCodeScanner, 
-                                contentDescription = null, 
-                                modifier = Modifier.size(18.dp)
+                        if (packageItem.status in actionStatuses) {
+                            PackageActionButton(
+                                label = actionLabel,
+                                onClick = onActionClick,
+                                secondary = true
                             )
-                            Spacer(Modifier.width(4.dp))
-                            Text("Escanear", style = MaterialTheme.typography.labelMedium)
+                        } else {
+                            PackageStatusChip(packageItem.status)
                         }
                     }
                     PackageStatus.ENTREGADO -> {
@@ -127,5 +113,34 @@ fun UnifiedPackageCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PackageActionButton(
+    label: String,
+    onClick: () -> Unit,
+    secondary: Boolean = false
+) {
+    Button(
+        onClick = onClick,
+        colors = if (secondary) {
+            ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        } else {
+            ButtonDefaults.buttonColors()
+        },
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+        modifier = Modifier.height(36.dp)
+    ) {
+        Icon(
+            Icons.Default.QrCodeScanner,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium)
     }
 }

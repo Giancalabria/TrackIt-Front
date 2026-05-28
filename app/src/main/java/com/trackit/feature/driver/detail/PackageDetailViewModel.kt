@@ -58,7 +58,7 @@ class PackageDetailViewModel(
         
         viewModelScope.launch {
             val nextStatus = when (currentStatus) {
-                PackageStatus.ASIGNADO -> PackageStatus.CARGADO
+                PackageStatus.CARGADO -> PackageStatus.ENTREGADO
                 PackageStatus.EN_CAMINO -> PackageStatus.ENTREGADO
                 else -> currentStatus
             }

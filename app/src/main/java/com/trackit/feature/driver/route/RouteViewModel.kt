@@ -59,12 +59,15 @@ class RouteViewModel : ViewModel() {
         }.launchIn(viewModelScope)
     }
 
+<<<<<<< HEAD
     fun loadPackage(packageId: String, code: String) {
         viewModelScope.launch {
             packageRepository.updateStatus(packageId, PackageStatus.CARGADO)
         }
     }
 
+=======
+>>>>>>> 4ec6aeb0c00d4ffce04438f33116508558729978
     fun deliverPackage(packageId: String, code: String) {
         viewModelScope.launch {
             packageRepository.updateStatus(packageId, PackageStatus.ENTREGADO)

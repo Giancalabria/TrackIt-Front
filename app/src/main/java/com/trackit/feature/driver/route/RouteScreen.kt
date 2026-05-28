@@ -64,7 +64,7 @@ fun RouteScreen(
 
     scanningPackage?.let { pkg ->
         val scannerTitle = when (pkg.status) {
-            PackageStatus.ASIGNADO -> "Escanear para Cargar"
+            PackageStatus.CARGADO -> "Escanear para Entregar"
             PackageStatus.EN_CAMINO -> "Escanear para Entregar"
             else -> "Escanear Paquete"
         }
@@ -72,9 +72,7 @@ fun RouteScreen(
         BarcodeScannerSheet(
             title = scannerTitle,
             onCodeScanned = { code ->
-                if (pkg.status == PackageStatus.ASIGNADO) {
-                    viewModel.loadPackage(pkg.id, code)
-                } else if (pkg.status == PackageStatus.EN_CAMINO) {
+                if (pkg.status == PackageStatus.CARGADO || pkg.status == PackageStatus.EN_CAMINO) {
                     viewModel.deliverPackage(pkg.id, code)
                 }
                 scanningPackage = null
