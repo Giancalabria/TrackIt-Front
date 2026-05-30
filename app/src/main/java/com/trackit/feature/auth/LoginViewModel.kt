@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackit.data.model.User
 import com.trackit.data.repository.IAuthRepository
-import com.trackit.data.repository.SupabaseAuthRepository
 import com.trackit.data.repository.SupabaseLocator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +20,7 @@ data class LoginUiState(
 )
 
 class LoginViewModel(
-    private val authRepository: IAuthRepository = SupabaseAuthRepository(SupabaseLocator.client)
+    private val authRepository: IAuthRepository = SupabaseLocator.authRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()

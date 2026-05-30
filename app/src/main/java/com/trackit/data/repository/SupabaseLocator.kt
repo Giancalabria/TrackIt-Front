@@ -5,5 +5,9 @@ import io.github.jan.supabase.SupabaseClient
 object SupabaseLocator {
     lateinit var client: SupabaseClient
         internal set
+
+    val authRepository: IAuthRepository by lazy {
+        SupabaseAuthRepository(client)
+    }
 }
 

@@ -8,7 +8,6 @@ import com.trackit.data.repository.IAuthRepository
 import com.trackit.data.repository.IMapRepository
 import com.trackit.data.repository.MapRepository
 import com.trackit.data.repository.IPackageRepository
-import com.trackit.data.repository.SupabaseAuthRepository
 import com.trackit.data.repository.SupabaseLocator
 import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.FlowPreview
@@ -30,7 +29,7 @@ data class MapUiState(
 class MapViewModel(
     private val mapRepository: IMapRepository = MapRepository.getInstance(),
     private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client),
-    private val authRepository: IAuthRepository = SupabaseAuthRepository(SupabaseLocator.client)
+    private val authRepository: IAuthRepository = SupabaseLocator.authRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MapUiState())
@@ -50,7 +49,10 @@ class MapViewModel(
                 }
         }
 
-        observeAssignedPackages()
+        viewModelScope.launch {
+            authRepository.resolveUserFromSession()
+            observeAssignedPackages()
+        }
     }
 
     fun updateUserLocation(lat: Double, lon: Double) {

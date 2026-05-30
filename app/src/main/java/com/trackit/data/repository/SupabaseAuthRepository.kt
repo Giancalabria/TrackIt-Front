@@ -90,9 +90,15 @@ class SupabaseAuthRepository(
     }
 
     override suspend fun resolveUserFromSession(): User? {
-        val authedUser = supabase.auth.currentUserOrNull() ?: return null
+        val authedUser = supabase.auth.currentUserOrNull()
+        if (authedUser == null) {
+            _currentUser.value = null
+            return null
+        }
         val email = authedUser.email?.trim()?.lowercase().orEmpty()
-        return resolveUserFromSession(email)
+        val user = resolveUserFromSession(email) ?: return null
+        _currentUser.value = user
+        return user
     }
 
     private suspend fun resolveUserFromSession(fallbackEmail: String): User? {

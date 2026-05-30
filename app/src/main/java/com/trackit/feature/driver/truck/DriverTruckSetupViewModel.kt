@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackit.data.repository.IAuthRepository
 import com.trackit.data.repository.IFleetRepository
-import com.trackit.data.repository.SupabaseAuthRepository
 import com.trackit.data.repository.SupabaseFleetRepository
 import com.trackit.data.repository.SupabaseLocator
 import io.github.jan.supabase.SupabaseClient
@@ -27,7 +26,7 @@ data class DriverTruckSetupUiState(
 class DriverTruckSetupViewModel(
     private val supabase: SupabaseClient = SupabaseLocator.client,
     private val fleetRepository: IFleetRepository = SupabaseFleetRepository(SupabaseLocator.client),
-    private val authRepository: IAuthRepository = SupabaseAuthRepository(SupabaseLocator.client)
+    private val authRepository: IAuthRepository = SupabaseLocator.authRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DriverTruckSetupUiState())
@@ -50,6 +49,7 @@ class DriverTruckSetupViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, errorMessage = null) }
+            authRepository.resolveUserFromSession()
             val authedUser = supabase.auth.currentUserOrNull()
             if (authedUser == null) {
                 _uiState.update {
@@ -85,6 +85,7 @@ class DriverTruckSetupViewModel(
     private fun checkExistingTruck() {
         viewModelScope.launch {
             try {
+                authRepository.resolveUserFromSession()
                 val authedUser = supabase.auth.currentUserOrNull()
                 if (authedUser == null) {
                     _uiState.update {
