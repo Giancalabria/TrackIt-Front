@@ -98,22 +98,16 @@ class LoadTruckViewModel(
                 packageItem.id in selectedIds
             }
 
-            var failedCount = 0
-            selectedPackages.forEach { packageItem ->
-                val result = packageRepository.updatePackage(
-                    packageItem.copy(
-                        status = PackageStatus.CARGADO,
-                        assignedDriverId = truck.driverId
-                    )
-                )
-                if (result.isFailure) failedCount++
-            }
+            val result = packageRepository.loadPackagesOntoTruck(
+                packageIds = selectedIds.toList(),
+                driverId = truck.driverId
+            )
 
-            if (failedCount > 0) {
+            if (result.isFailure) {
                 _uiState.update {
                     it.copy(
                         isSaving = false,
-                        errorMessage = "No se pudieron cargar $failedCount paquete(s). Reintentá."
+                        errorMessage = "No se pudieron cargar ${selectedPackages.size} paquete(s). Reintentá."
                     )
                 }
             } else {

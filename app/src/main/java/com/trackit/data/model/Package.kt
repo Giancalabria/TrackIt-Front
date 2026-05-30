@@ -43,5 +43,6 @@ data class Package(
     @SerialName("assigned_driver_id")
     val assignedDriverId: String? = null,
     @SerialName("registered_by_warehouse")
-    val registeredByWarehouse: Boolean = false
+    val registeredByWarehouse: Boolean = false,
+    val barcode: String? = null
 )

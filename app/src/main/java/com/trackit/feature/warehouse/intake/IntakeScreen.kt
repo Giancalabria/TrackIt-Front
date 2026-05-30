@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ import com.trackit.data.model.PackageSize
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IntakeScreen(
+    onNavigateBack: () -> Unit,
     viewModel: IntakeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -35,7 +37,43 @@ fun IntakeScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Ingreso de paquetes") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver"
+                        )
+                    }
+                }
+            )
+        },
+        bottomBar = {
+            Button(
+                onClick = viewModel::registerPackage,
+                enabled = !uiState.isSubmitting &&
+                    uiState.clientName.isNotBlank() &&
+                    uiState.address.isNotBlank() &&
+                    uiState.barcode.isNotBlank(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .height(56.dp)
+            ) {
+                if (uiState.isSubmitting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text("Registrar paquete")
+                }
+            }
+        }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -45,11 +83,6 @@ fun IntakeScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = "Ingreso de paquetes",
-                style = MaterialTheme.typography.titleLarge
-            )
-
             OutlinedTextField(
                 value = uiState.clientName,
                 onValueChange = viewModel::onClientNameChange,
@@ -144,18 +177,19 @@ fun IntakeScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Button(
+            OutlinedButton(
                 onClick = viewModel::openScanner,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary
-                )
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Default.QrCodeScanner, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text(if (uiState.barcode.isEmpty()) "Escanear Código de Barras" else "Código: ${uiState.barcode}")
+                Text(
+                    if (uiState.barcode.isEmpty()) {
+                        "Escanear código de barras *"
+                    } else {
+                        "Código: ${uiState.barcode}"
+                    }
+                )
             }
         }
     }

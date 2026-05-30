@@ -120,11 +120,7 @@ class IntakeViewModel(
     }
 
     fun openScanner() {
-        if (_uiState.value.clientName.isBlank() || _uiState.value.address.isBlank()) {
-            _uiState.update { it.copy(errorMessage = "Completá cliente y dirección antes de escanear.") }
-            return
-        }
-        _uiState.update { it.copy(isScannerOpen = true) }
+        _uiState.update { it.copy(isScannerOpen = true, errorMessage = null) }
     }
 
     fun closeScanner() {
@@ -133,7 +129,17 @@ class IntakeViewModel(
 
     fun onBarcodeScanned(code: String) {
         _uiState.update { it.copy(barcode = code, isScannerOpen = false) }
-        submitPackage()
+    }
+
+    fun registerPackage() {
+        val currentState = _uiState.value
+        when {
+            currentState.clientName.isBlank() || currentState.address.isBlank() ->
+                _uiState.update { it.copy(errorMessage = "Completá cliente y dirección antes de registrar.") }
+            currentState.barcode.isBlank() ->
+                _uiState.update { it.copy(errorMessage = "Escaneá el código de barras antes de registrar.") }
+            else -> submitPackage()
+        }
     }
 
     private fun submitPackage() {
@@ -143,6 +149,7 @@ class IntakeViewModel(
             _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
 
             packageRepository.addPackage(
+                barcode = currentState.barcode.trim(),
                 clientName = currentState.clientName.trim(),
                 address = currentState.address.trim(),
                 destinationLat = currentState.destinationLat,
@@ -163,7 +170,7 @@ class IntakeViewModel(
                             size = PackageSize.MEDIUM,
                             isFragile = false,
                             scheduledDate = LocalDate.now().plusDays(1),
-                            successMessage = "Paquete registrado correctamente con código: ${currentState.barcode}",
+                            successMessage = "Paquete registrado correctamente con código: ${currentState.barcode.trim()}",
                             errorMessage = null,
                             isSubmitting = false
                         )

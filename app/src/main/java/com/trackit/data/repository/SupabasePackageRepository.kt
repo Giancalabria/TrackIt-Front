@@ -90,6 +90,23 @@ class SupabasePackageRepository(
             }
         }
 
+    override suspend fun loadPackagesOntoTruck(packageIds: List<String>, driverId: String): Result<Unit> =
+        runCatching {
+            withContext(Dispatchers.IO) {
+                packageIds.forEach { pkgId ->
+                    supabase.from("packages").update(
+                        mapOf(
+                            "status" to PackageStatus.CARGADO.name,
+                            "assigned_driver_id" to driverId
+                        )
+                    ) {
+                        filter { eq("id", pkgId) }
+                    }
+                }
+                refreshPackages()
+            }
+        }
+
     override suspend fun triggerRouteOptimization(targetDate: LocalDate): Result<Unit> = runCatching {
         withContext(Dispatchers.IO) {
             supabase.functions.invoke(
@@ -101,6 +118,7 @@ class SupabasePackageRepository(
     }
 
     override suspend fun addPackage(
+        barcode: String,
         clientName: String,
         address: String,
         destinationLat: Double?,
@@ -121,7 +139,8 @@ class SupabasePackageRepository(
                 isFragile = isFragile,
                 status = PackageStatus.EN_DEPOSITO,
                 scheduledDate = scheduledDate,
-                registeredByWarehouse = true
+                registeredByWarehouse = true,
+                barcode = barcode.trim()
             )
             supabase.from("packages").insert(newPackage)
             refreshPackages()

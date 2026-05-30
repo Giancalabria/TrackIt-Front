@@ -21,11 +21,13 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,8 +42,10 @@ import com.trackit.core.ui.components.PackageStatusChip
 import com.trackit.data.model.Package
 import com.trackit.data.model.Truck
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoadTruckScreen(
+    onNavigateBack: () -> Unit,
     viewModel: LoadTruckViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -62,6 +66,21 @@ fun LoadTruckScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            if (uiState.step == LoadTruckStep.SELECT_PACKAGES) {
+                TopAppBar(
+                    title = { Text("Cargar camión") },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Volver"
+                            )
+                        }
+                    }
+                )
+            }
+        },
         bottomBar = {
             if (uiState.step == LoadTruckStep.SELECT_PACKAGES && uiState.packages.isNotEmpty()) {
                 Button(
@@ -123,14 +142,10 @@ private fun PackageSelectionContent(
     ) {
         item {
             Text(
-                text = "Cargar camión",
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Text(
                 text = "Seleccioná los paquetes que van al camión.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 8.dp)
             )
         }
 

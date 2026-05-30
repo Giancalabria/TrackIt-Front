@@ -13,8 +13,10 @@ interface IPackageRepository {
     suspend fun getDriverPackages(driverId: String): List<Package>
     suspend fun updateStatus(id: String, status: PackageStatus): Result<Unit>
     suspend fun assignPackagesToDriver(packageIds: List<String>, driverId: String): Result<Unit>
+    suspend fun loadPackagesOntoTruck(packageIds: List<String>, driverId: String): Result<Unit>
     suspend fun triggerRouteOptimization(targetDate: LocalDate): Result<Unit>
     suspend fun addPackage(
+        barcode: String,
         clientName: String,
         address: String,
         destinationLat: Double?,
