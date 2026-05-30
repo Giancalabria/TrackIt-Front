@@ -5,10 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.trackit.data.model.Package
 import com.trackit.data.model.PackageStatus
 import com.trackit.data.model.Truck
-import com.trackit.data.repository.FleetRepository
 import com.trackit.data.repository.IFleetRepository
 import com.trackit.data.repository.IPackageRepository
-import com.trackit.data.repository.PackageRepository
+import com.trackit.data.repository.SupabaseFleetRepository
+import com.trackit.data.repository.SupabaseLocator
+import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,12 +29,14 @@ data class LoadTruckUiState(
     val trucks: List<Truck> = emptyList(),
     val selectedPackageIds: Set<String> = emptySet(),
     val step: LoadTruckStep = LoadTruckStep.SELECT_PACKAGES,
-    val successMessage: String? = null
+    val successMessage: String? = null,
+    val errorMessage: String? = null,
+    val isSaving: Boolean = false
 )
 
 class LoadTruckViewModel(
-    private val packageRepository: IPackageRepository = PackageRepository.getInstance(),
-    private val fleetRepository: IFleetRepository = FleetRepository.getInstance()
+    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client),
+    private val fleetRepository: IFleetRepository = SupabaseFleetRepository(SupabaseLocator.client)
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoadTruckUiState())
     val uiState: StateFlow<LoadTruckUiState> = _uiState.asStateFlow()
@@ -77,7 +80,7 @@ class LoadTruckViewModel(
 
     fun confirmPackages() {
         if (_uiState.value.selectedPackageIds.isEmpty()) return
-        _uiState.update { it.copy(step = LoadTruckStep.SELECT_TRUCK) }
+        _uiState.update { it.copy(step = LoadTruckStep.SELECT_TRUCK, errorMessage = null) }
     }
 
     fun backToPackageSelection() {
@@ -89,25 +92,39 @@ class LoadTruckViewModel(
         if (selectedIds.isEmpty()) return
 
         viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true, errorMessage = null) }
+
             val selectedPackages = _uiState.value.packages.filter { packageItem ->
                 packageItem.id in selectedIds
             }
 
+            var failedCount = 0
             selectedPackages.forEach { packageItem ->
-                packageRepository.updatePackage(
+                val result = packageRepository.updatePackage(
                     packageItem.copy(
                         status = PackageStatus.CARGADO,
                         assignedDriverId = truck.driverId
                     )
                 )
+                if (result.isFailure) failedCount++
             }
 
-            _uiState.update {
-                it.copy(
-                    selectedPackageIds = emptySet(),
-                    step = LoadTruckStep.SELECT_PACKAGES,
-                    successMessage = "${selectedPackages.size} paquete(s) cargado(s) en ${truck.plate}"
-                )
+            if (failedCount > 0) {
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        errorMessage = "No se pudieron cargar $failedCount paquete(s). Reintentá."
+                    )
+                }
+            } else {
+                _uiState.update {
+                    it.copy(
+                        selectedPackageIds = emptySet(),
+                        step = LoadTruckStep.SELECT_PACKAGES,
+                        successMessage = "${selectedPackages.size} paquete(s) cargado(s) en ${truck.plate}",
+                        isSaving = false
+                    )
+                }
             }
         }
     }

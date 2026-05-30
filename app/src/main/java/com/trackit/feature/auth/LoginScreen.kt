@@ -14,6 +14,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,6 +30,7 @@ import com.trackit.data.model.User
 @Composable
 fun LoginScreen(
     onLoginSuccess: (User) -> Unit,
+    onNavigateToRegister: () -> Unit,
     viewModel: LoginViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -101,6 +103,11 @@ fun LoginScreen(
             } else {
                 Text("Entrar")
             }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        TextButton(onClick = onNavigateToRegister, enabled = !uiState.isLoading) {
+            Text("¿No tenés cuenta? Registrate")
         }
     }
 }

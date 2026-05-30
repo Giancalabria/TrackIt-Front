@@ -36,7 +36,6 @@ fun BarcodeScannerSheet(
     var manualCode by remember { mutableStateOf("") }
     var hasCameraPermission by remember { mutableStateOf(false) }
 
-    // Simulación de permiso concedido. En producción se usaría un PermissionState.
     LaunchedEffect(Unit) {
         hasCameraPermission = true 
     }
@@ -65,7 +64,6 @@ fun BarcodeScannerSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Camera Viewport - More compact and stylized
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -83,7 +81,6 @@ fun BarcodeScannerSheet(
                         onCodeScanned(code)
                     })
                     
-                    // Viewfinder Graphic
                     Box(
                         modifier = Modifier
                             .size(180.dp, 60.dp)
@@ -106,7 +103,6 @@ fun BarcodeScannerSheet(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Manual Input Section
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)

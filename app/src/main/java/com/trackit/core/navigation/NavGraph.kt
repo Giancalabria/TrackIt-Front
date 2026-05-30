@@ -16,6 +16,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.trackit.data.model.UserRole
 import com.trackit.feature.auth.LoginScreen
+import com.trackit.feature.auth.RegisterScreen
+import com.trackit.feature.driver.truck.DriverTruckSetupScreen
 
 private data class NavItem(val route: String, val label: String, val icon: ImageVector)
 
@@ -26,7 +28,6 @@ fun TrackItNavHost(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
-    // Definición de destinos para las BottomBars según el rol
     val driverItems = listOf(
         NavItem(Routes.DRIVER_ROUTE, "Ruta", Icons.Default.Route),
         NavItem(Routes.DRIVER_PROFILE, "Perfil", Icons.Default.Person)
@@ -44,7 +45,6 @@ fun TrackItNavHost(
         NavItem(Routes.ADMIN_PROFILE, "Perfil", Icons.Default.Person)
     )
 
-    // Determinar qué barra mostrar
     val bottomBarItems = when {
         currentDestination?.hierarchy?.any { it.route == Routes.DRIVER } == true -> driverItems
         currentDestination?.hierarchy?.any { it.route == Routes.WAREHOUSE } == true -> warehouseItems
@@ -63,8 +63,15 @@ fun TrackItNavHost(
                             label = { Text(item.label) },
                             selected = selected,
                             onClick = {
+                                val graphRoot = when {
+                                    currentDestination?.hierarchy?.any { it.route == Routes.DRIVER } == true ->
+                                        Routes.DRIVER
+                                    currentDestination?.hierarchy?.any { it.route == Routes.WAREHOUSE } == true ->
+                                        Routes.WAREHOUSE
+                                    else -> Routes.ADMIN
+                                }
                                 navController.navigate(item.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
+                                    popUpTo(graphRoot) {
                                         saveState = true
                                     }
                                     launchSingleTop = true
@@ -86,18 +93,46 @@ fun TrackItNavHost(
                 LoginScreen(
                     onLoginSuccess = { user ->
                         val destination = when (user.role) {
-                            UserRole.DRIVER -> Routes.DRIVER
+                            UserRole.DRIVER -> Routes.DRIVER_SETUP_TRUCK
                             UserRole.WAREHOUSE -> Routes.WAREHOUSE
                             UserRole.ADMIN -> Routes.ADMIN
                         }
                         navController.navigate(destination) {
                             popUpTo(Routes.LOGIN) { inclusive = true }
                         }
+                    },
+                    onNavigateToRegister = { navController.navigate(Routes.REGISTER) }
+                )
+            }
+
+            composable(Routes.REGISTER) {
+                RegisterScreen(
+                    onRegisterSuccess = { user ->
+                        val destination = when (user.role) {
+                            UserRole.DRIVER -> Routes.DRIVER_SETUP_TRUCK
+                            UserRole.WAREHOUSE -> Routes.WAREHOUSE
+                            UserRole.ADMIN -> Routes.ADMIN
+                        }
+                        navController.navigate(destination) {
+                            popUpTo(Routes.LOGIN) { inclusive = true }
+                        }
+                    },
+                    onNavigateToLogin = {
+                        navController.popBackStack()
                     }
                 )
             }
 
-            // Integración de los grafos anidados
+            composable(Routes.DRIVER_SETUP_TRUCK) {
+                DriverTruckSetupScreen(
+                    onSetupComplete = {
+                        navController.navigate(Routes.DRIVER) {
+                            popUpTo(Routes.DRIVER_SETUP_TRUCK) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             driverNavGraph(navController)
             warehouseNavGraph(navController)
             adminNavGraph(navController)

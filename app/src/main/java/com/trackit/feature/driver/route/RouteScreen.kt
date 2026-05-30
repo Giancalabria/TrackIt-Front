@@ -28,6 +28,14 @@ fun RouteScreen(
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
+        } else if (uiState.errorMessage != null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = uiState.errorMessage!!,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         } else if (uiState.packages.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
@@ -62,7 +70,6 @@ fun RouteScreen(
         }
     }
 
-    // Scanner Dialog Logic
     scanningPackage?.let { pkg ->
         val scannerTitle = when (pkg.status) {
             PackageStatus.CARGADO -> "Escanear para Entregar"
@@ -74,7 +81,7 @@ fun RouteScreen(
             title = scannerTitle,
             onCodeScanned = { code ->
                 if (pkg.status == PackageStatus.CARGADO || pkg.status == PackageStatus.EN_CAMINO) {
-                    viewModel.deliverPackage(pkg.id, code)
+                    viewModel.deliverPackage(pkg.id)
                 }
                 scanningPackage = null
             },

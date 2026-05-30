@@ -4,10 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackit.data.model.PackageStatus
 import com.trackit.data.model.Truck
-import com.trackit.data.repository.FleetRepository
 import com.trackit.data.repository.IFleetRepository
 import com.trackit.data.repository.IPackageRepository
-import com.trackit.data.repository.PackageRepository
+import com.trackit.data.repository.SupabaseFleetRepository
+import com.trackit.data.repository.SupabaseLocator
+import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -16,19 +17,19 @@ data class FleetUiState(
     val trucks: List<Truck> = emptyList(),
     val isCronJobRunning: Boolean = false,
     val cronJobSuccess: Boolean = false,
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val errorMessage: String? = null
 )
 
 class FleetViewModel(
-    private val fleetRepository: IFleetRepository = FleetRepository.getInstance(),
-    private val packageRepository: IPackageRepository = PackageRepository.getInstance()
+    private val fleetRepository: IFleetRepository = SupabaseFleetRepository(SupabaseLocator.client),
+    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client)
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FleetUiState())
     val uiState: StateFlow<FleetUiState> = _uiState.asStateFlow()
 
     init {
-        // Combinamos la lista de camiones con la lista de paquetes para calcular estadísticas reales
         combine(
             fleetRepository.trucks,
             packageRepository.packages
@@ -46,10 +47,22 @@ class FleetViewModel(
 
     fun runDailyCronJob() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isCronJobRunning = true) }
-            val driverIds = _uiState.value.trucks.map { it.driverId }
-            packageRepository.simulateDailyCronJob(LocalDate.now(), driverIds)
-            _uiState.update { it.copy(isCronJobRunning = false, cronJobSuccess = true) }
+            _uiState.update { it.copy(isCronJobRunning = true, errorMessage = null, cronJobSuccess = false) }
+
+            packageRepository.triggerRouteOptimization(LocalDate.now())
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(isCronJobRunning = false, cronJobSuccess = true)
+                    }
+                }
+                .onFailure {
+                    _uiState.update {
+                        it.copy(
+                            isCronJobRunning = false,
+                            errorMessage = "No se pudo ejecutar la optimización de rutas."
+                        )
+                    }
+                }
         }
     }
 

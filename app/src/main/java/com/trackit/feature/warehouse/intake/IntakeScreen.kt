@@ -1,14 +1,7 @@
 package com.trackit.feature.warehouse.intake
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -65,13 +58,42 @@ fun IntakeScreen(
                 singleLine = true
             )
 
-            OutlinedTextField(
-                value = uiState.address,
-                onValueChange = viewModel::onAddressChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Dirección") },
-                singleLine = true
-            )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = uiState.address,
+                    onValueChange = viewModel::onAddressChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Dirección de destino") },
+                    singleLine = true,
+                    trailingIcon = {
+                        if (uiState.isSearchingAddress) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    }
+                )
+
+                if (uiState.addressSearchResults.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        uiState.addressSearchResults.forEach { result ->
+                            ListItem(
+                                headlineContent = { Text(result.properties.getDisplayName()) },
+                                supportingContent = { Text(result.properties.city ?: "") },
+                                modifier = Modifier.clickable {
+                                    viewModel.onAddressSelected(result)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
 
             ExposedDropdownMenuBox(
                 expanded = uiState.isSizeMenuExpanded,
