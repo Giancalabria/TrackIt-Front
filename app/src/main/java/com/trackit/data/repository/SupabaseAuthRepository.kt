@@ -123,7 +123,7 @@ class SupabaseAuthRepository(
             val metadata = authedUser.userMetadata
             displayName = metadata?.get("display_name")?.toString()?.removeSurrounding("\"") ?: "Usuario"
             val roleStr = metadata?.get("role")?.toString()?.removeSurrounding("\"")
-            role = roleStr.toUserRoleOrNull() ?: UserRole.DRIVER
+            role = roleStr?.toUserRoleOrNull() ?: UserRole.DRIVER
         }
 
         return User(
