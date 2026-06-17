@@ -3,14 +3,13 @@ package com.trackit.feature.map
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackit.data.model.Package
+import com.trackit.data.model.PackageStatus
 import com.trackit.data.model.PhotonFeature
 import com.trackit.data.repository.IAuthRepository
 import com.trackit.data.repository.IMapRepository
 import com.trackit.data.repository.MapRepository
 import com.trackit.data.repository.IPackageRepository
-import com.trackit.data.repository.SupabaseAuthRepository
 import com.trackit.data.repository.SupabaseLocator
-import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -29,8 +28,8 @@ data class MapUiState(
 @OptIn(FlowPreview::class)
 class MapViewModel(
     private val mapRepository: IMapRepository = MapRepository.getInstance(),
-    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client),
-    private val authRepository: IAuthRepository = SupabaseAuthRepository(SupabaseLocator.client)
+    private val packageRepository: IPackageRepository = SupabaseLocator.packageRepository,
+    private val authRepository: IAuthRepository = SupabaseLocator.authRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MapUiState())
@@ -55,6 +54,46 @@ class MapViewModel(
 
     fun updateUserLocation(lat: Double, lon: Double) {
         _userLocation.value = lat to lon
+    }
+
+    /**
+     * Draws a route from the driver's current location through all their pending stops,
+     * in optimizer visit order (routeOrder). Skips delivered/failed packages.
+     */
+    fun buildAssignedRoute(currentLat: Double, currentLon: Double) {
+        val stops = _uiState.value.assignedPackages
+            .filter { it.status != PackageStatus.ENTREGADO && it.status != PackageStatus.FALLIDO }
+            .filter { it.destinationLat != null && it.destinationLon != null }
+            .sortedWith(compareBy<Package, Int?>(nullsLast()) { it.routeOrder }.thenBy { it.eta })
+
+        if (stops.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "No tenés paradas pendientes para rutear.") }
+            return
+        }
+
+        val coordinates = buildList {
+            add(listOf(currentLon, currentLat))
+            stops.forEach { add(listOf(it.destinationLon!!, it.destinationLat!!)) }
+        }
+
+        _uiState.update { it.copy(isLoadingRoute = true, errorMessage = null) }
+        viewModelScope.launch {
+            try {
+                val response = mapRepository.getRouteThrough(coordinates)
+                val points = response.features.firstOrNull()?.geometry?.asLineString()?.map {
+                    GeoPoint(it[1], it[0])
+                } ?: emptyList()
+                _uiState.update { it.copy(routePoints = points, isLoadingRoute = false) }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _uiState.update {
+                    it.copy(
+                        isLoadingRoute = false,
+                        errorMessage = "No se pudo trazar la ruta a tus paquetes. Reintentá."
+                    )
+                }
+            }
+        }
     }
 
     private fun observeAssignedPackages() {

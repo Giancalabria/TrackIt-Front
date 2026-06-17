@@ -14,6 +14,9 @@ import retrofit2.converter.gson.GsonConverterFactory
 interface IMapRepository {
     suspend fun searchAddress(query: String, lat: Double? = null, lon: Double? = null): PhotonResponse
     suspend fun getRoute(startLon: Double, startLat: Double, endLon: Double, endLat: Double): OrsResponse
+
+    /** Multi-stop route. [coordinates] is an ordered list of [lon, lat] points. */
+    suspend fun getRouteThrough(coordinates: List<List<Double>>): OrsResponse
 }
 
 class MapRepository private constructor() : IMapRepository {
@@ -53,6 +56,11 @@ class MapRepository private constructor() : IMapRepository {
         )
         orsApi.getRoute(BuildConfig.ORS_API_KEY, request)
     }
+
+    override suspend fun getRouteThrough(coordinates: List<List<Double>>): OrsResponse =
+        withContext(Dispatchers.IO) {
+            orsApi.getRoute(BuildConfig.ORS_API_KEY, OrsRequest(coordinates = coordinates))
+        }
 
     companion object {
         @Volatile

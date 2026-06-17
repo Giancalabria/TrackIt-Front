@@ -7,7 +7,6 @@ import com.trackit.data.model.Package
 import com.trackit.data.model.PackageStatus
 import com.trackit.data.repository.IPackageRepository
 import com.trackit.data.repository.SupabaseLocator
-import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,7 +23,7 @@ data class PackageDetailUiState(
 
 class PackageDetailViewModel(
     savedStateHandle: SavedStateHandle,
-    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client)
+    private val packageRepository: IPackageRepository = SupabaseLocator.packageRepository
 ) : ViewModel() {
     private val packageId: String = checkNotNull(savedStateHandle["packageId"])
 
@@ -57,16 +56,27 @@ class PackageDetailViewModel(
     }
 
     fun onCodeScanned(code: String) {
-        val currentStatus = _uiState.value.packageItem?.status ?: return
+        val pkg = _uiState.value.packageItem ?: return
+
+        // Validate the scanned/typed code against this package before changing state.
+        if (!pkg.matchesCode(code)) {
+            _uiState.update {
+                it.copy(
+                    isScannerOpen = false,
+                    errorMessage = "El código no coincide con este paquete."
+                )
+            }
+            return
+        }
 
         viewModelScope.launch {
-            val nextStatus = when (currentStatus) {
+            val nextStatus = when (pkg.status) {
                 PackageStatus.CARGADO -> PackageStatus.ENTREGADO
                 PackageStatus.EN_CAMINO -> PackageStatus.ENTREGADO
-                else -> currentStatus
+                else -> pkg.status
             }
 
-            if (nextStatus != currentStatus) {
+            if (nextStatus != pkg.status) {
                 packageRepository.updateStatus(packageId, nextStatus)
                     .onSuccess {
                         _uiState.update {
@@ -86,4 +96,15 @@ class PackageDetailViewModel(
             }
         }
     }
+}
+
+/**
+ * A scanned/typed code matches a package when it equals its barcode (preferred) or its id.
+ * If the package has no barcode, the id is the expected value.
+ */
+fun Package.matchesCode(code: String): Boolean {
+    val input = code.trim()
+    if (input.isBlank()) return false
+    val expected = barcode.ifBlank { id }
+    return input.equals(expected, ignoreCase = true) || input.equals(id, ignoreCase = true)
 }

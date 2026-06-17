@@ -1,6 +1,8 @@
 package com.trackit.data.model
 
+import java.time.Instant
 import java.time.LocalDate
+import com.trackit.data.serialization.InstantSerializer
 import com.trackit.data.serialization.LocalDateSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -43,5 +45,15 @@ data class Package(
     @SerialName("assigned_driver_id")
     val assignedDriverId: String? = null,
     @SerialName("registered_by_warehouse")
-    val registeredByWarehouse: Boolean = false
+    val registeredByWarehouse: Boolean = false,
+    @SerialName("barcode")
+    val barcode: String = "",
+    @SerialName("route_order")
+    val routeOrder: Int? = null,
+    @Serializable(with = InstantSerializer::class)
+    @SerialName("updated_at")
+    val updatedAt: Instant? = null,
+    @Serializable(with = InstantSerializer::class)
+    @SerialName("delivered_at")
+    val deliveredAt: Instant? = null
 )

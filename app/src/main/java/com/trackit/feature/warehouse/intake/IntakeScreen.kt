@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ import com.trackit.data.model.PackageSize
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IntakeScreen(
+    onBack: () -> Unit = {},
     viewModel: IntakeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -35,6 +37,16 @@ fun IntakeScreen(
     }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Ingreso de paquetes") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                }
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Column(
@@ -45,11 +57,6 @@ fun IntakeScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = "Ingreso de paquetes",
-                style = MaterialTheme.typography.titleLarge
-            )
-
             OutlinedTextField(
                 value = uiState.clientName,
                 onValueChange = viewModel::onClientNameChange,

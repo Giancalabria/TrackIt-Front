@@ -1,8 +1,8 @@
 package com.trackit.core.navigation
 
 object Routes {
+    const val SPLASH = "splash"
     const val LOGIN = "login"
-    const val REGISTER = "register"
     const val DRIVER_SETUP_TRUCK = "driver/setup_truck"
     const val DRIVER = "driver"
     const val WAREHOUSE = "warehouse"
@@ -22,6 +22,7 @@ object Routes {
     const val ADMIN_FLEET = "admin/fleet"
     const val ADMIN_GLOBAL_MAP = "admin/global_map"
     const val ADMIN_PROFILE = "admin/profile"
+    const val ADMIN_CREATE_USER = "admin/create_user"
     const val ADMIN_ASSIGN_ROUTE = "admin/assign_route/{driverId}"
 
     fun driverDetail(packageId: String): String = "driver/detail/$packageId"

@@ -61,6 +61,15 @@ Deno.serve(async (req) => {
       auth: { persistSession: false },
     });
 
+    // 0) Re-run support: free previously ASIGNADO (not yet loaded) packages for this date
+    //    so they can be rebalanced. Never touch CARGADO or beyond.
+    const { error: resetErr } = await supabase
+      .from("packages")
+      .update({ status: "EN_DEPOSITO", assigned_driver_id: null, route_order: null })
+      .eq("status", "ASIGNADO")
+      .eq("scheduled_date", targetDate);
+    if (resetErr) throw resetErr;
+
     // 1) Fetch packages to assign (EN_DEPOSITO for targetDate)
     const { data: packages, error: pkgErr } = await supabase
       .from("packages")
@@ -139,12 +148,13 @@ Deno.serve(async (req) => {
     const vehicleIdToDriverId = new Map<number, string>();
     for (const v of vehicles) vehicleIdToDriverId.set(v.vehicleId, v.driverId);
 
-    // 4) Apply assignments (status=ASIGNADO, assigned_driver_id=driver)
+    // 4) Apply assignments (status=ASIGNADO, assigned_driver_id=driver, route_order=visit order)
     const updates: Array<Promise<unknown>> = [];
     for (const route of orsJson.routes ?? []) {
       const driverId = vehicleIdToDriverId.get(route.vehicle);
       if (!driverId) continue;
 
+      let visitOrder = 1;
       for (const step of route.steps ?? []) {
         if (step.type !== "job" || step.job == null) continue;
         const packageId = jobIdToPackageId.get(step.job);
@@ -153,9 +163,14 @@ Deno.serve(async (req) => {
         updates.push(
           supabase
             .from("packages")
-            .update({ status: "ASIGNADO", assigned_driver_id: driverId })
+            .update({
+              status: "ASIGNADO",
+              assigned_driver_id: driverId,
+              route_order: visitOrder,
+            })
             .eq("id", packageId),
         );
+        visitOrder++;
       }
     }
 

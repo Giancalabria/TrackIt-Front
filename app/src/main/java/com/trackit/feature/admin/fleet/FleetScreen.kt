@@ -25,12 +25,11 @@ fun FleetScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(uiState.cronJobSuccess) {
-        uiState.cronJobSuccess.let { success ->
-            if (success) {
-                snackbarHostState.showSnackbar("Rutas generadas automáticamente.")
-                viewModel.consumeCronJobSuccess()
-            }
+    LaunchedEffect(uiState.cronResultMessage) {
+        uiState.cronResultMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.consumeCronResultMessage()
+            viewModel.consumeCronJobSuccess()
         }
     }
 

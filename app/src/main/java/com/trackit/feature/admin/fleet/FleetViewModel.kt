@@ -6,24 +6,26 @@ import com.trackit.data.model.PackageStatus
 import com.trackit.data.model.Truck
 import com.trackit.data.repository.IFleetRepository
 import com.trackit.data.repository.IPackageRepository
-import com.trackit.data.repository.SupabaseFleetRepository
 import com.trackit.data.repository.SupabaseLocator
-import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.ZoneId
+
+private val ARGENTINA_ZONE: ZoneId = ZoneId.of("America/Argentina/Buenos_Aires")
 
 data class FleetUiState(
     val trucks: List<Truck> = emptyList(),
     val isCronJobRunning: Boolean = false,
     val cronJobSuccess: Boolean = false,
+    val cronResultMessage: String? = null,
     val isLoading: Boolean = true,
     val errorMessage: String? = null
 )
 
 class FleetViewModel(
-    private val fleetRepository: IFleetRepository = SupabaseFleetRepository(SupabaseLocator.client),
-    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client)
+    private val fleetRepository: IFleetRepository = SupabaseLocator.fleetRepository,
+    private val packageRepository: IPackageRepository = SupabaseLocator.packageRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FleetUiState())
@@ -47,12 +49,36 @@ class FleetViewModel(
 
     fun runDailyCronJob() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isCronJobRunning = true, errorMessage = null, cronJobSuccess = false) }
+            _uiState.update {
+                it.copy(
+                    isCronJobRunning = true,
+                    errorMessage = null,
+                    cronJobSuccess = false,
+                    cronResultMessage = null
+                )
+            }
 
-            packageRepository.triggerRouteOptimization(LocalDate.now())
-                .onSuccess {
+            // Use the same date the cron uses (today in Argentina time) so the manual
+            // "Generar rutas del día" button stays aligned with the scheduled job.
+            val today = LocalDate.now(ARGENTINA_ZONE)
+            packageRepository.triggerRouteOptimization(today)
+                .onSuccess { result ->
+                    val message = when {
+                        !result.ok && result.error != null ->
+                            "No se pudo optimizar: ${result.error}"
+                        result.reason == "no_jobs" ->
+                            "No hay paquetes en depósito para el ${result.targetDate}."
+                        result.reason == "no_vehicles" ->
+                            "No hay choferes con camión disponibles."
+                        else ->
+                            "Rutas generadas: ${result.assigned} asignados, ${result.unassigned} sin asignar."
+                    }
                     _uiState.update {
-                        it.copy(isCronJobRunning = false, cronJobSuccess = true)
+                        it.copy(
+                            isCronJobRunning = false,
+                            cronJobSuccess = result.ok,
+                            cronResultMessage = message
+                        )
                     }
                 }
                 .onFailure {
@@ -68,5 +94,9 @@ class FleetViewModel(
 
     fun consumeCronJobSuccess() {
         _uiState.update { it.copy(cronJobSuccess = false) }
+    }
+
+    fun consumeCronResultMessage() {
+        _uiState.update { it.copy(cronResultMessage = null) }
     }
 }

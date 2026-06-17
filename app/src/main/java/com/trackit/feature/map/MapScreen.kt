@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -206,11 +207,11 @@ fun MapScreen(
             AndroidView(
                 factory = {
                     mapView.apply {
-                        setTileSource(TileSourceFactory.MAPNIK)
-                        setMultiTouchControls(true)
-                        controller.setZoom(15.0)
+                    setTileSource(TileSourceFactory.MAPNIK)
+                    setMultiTouchControls(true)
+                    controller.setZoom(13.0)
 
-                        myLocationOverlay?.let { overlays.add(it) }
+                    myLocationOverlay?.let { overlays.add(it) }
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -256,18 +257,40 @@ fun MapScreen(
                 }
             )
 
-            FloatingActionButton(
-                onClick = {
-                    myLocationOverlay?.myLocation?.let {
-                        mapView.controller.animateTo(it)
-                    }
-                },
+            Column(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp),
-                containerColor = MaterialTheme.colorScheme.primaryContainer
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Default.MyLocation, contentDescription = "Mi ubicación")
+                if (uiState.assignedPackages.isNotEmpty()) {
+                    ExtendedFloatingActionButton(
+                        onClick = {
+                            val loc = myLocationOverlay?.myLocation
+                            viewModel.buildAssignedRoute(
+                                loc?.latitude ?: -34.6037,
+                                loc?.longitude ?: -58.3816
+                            )
+                        },
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Icon(Icons.Default.Route, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Trazar mi ruta")
+                    }
+                }
+
+                FloatingActionButton(
+                    onClick = {
+                        myLocationOverlay?.myLocation?.let {
+                            mapView.controller.animateTo(it)
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Icon(Icons.Default.MyLocation, contentDescription = "Mi ubicación")
+                }
             }
         }
 

@@ -17,7 +17,7 @@ data class ProfileUiState(
 )
 
 class ProfileViewModel(
-    private val authRepository: IAuthRepository = SupabaseAuthRepository(SupabaseLocator.client)
+    private val authRepository: IAuthRepository = SupabaseLocator.authRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())

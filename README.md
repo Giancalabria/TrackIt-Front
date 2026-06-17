@@ -6,15 +6,15 @@ TrackIt es una aplicación Android de logística de última milla para gestionar
 
 | Área | Estado |
 |------|--------|
-| **Autenticación** | Real con Supabase Auth (login + registro de cuenta con rol) |
-| **Datos de negocio** | Paquetes y camiones en PostgreSQL vía PostgREST |
+| **Autenticación** | Real con Supabase Auth (login). El **registro es solo por admin** (Edge Function `admin-create-user`); no hay alta pública. Sesión persistente entre aperturas. |
+| **Datos de negocio** | **Offline-first**: Room es la única fuente de verdad; Supabase (PostgreSQL/PostgREST) sincroniza en segundo plano |
 | **Mapas en pantalla** | OSMDroid + tiles OpenStreetMap |
 | **Geocodificación** | Photon (Komoot) |
-| **Rutas punto a punto** | OpenRouteService `/directions` (polyline en mapa del chofer) |
-| **Optimización de rutas** | Edge Function `daily-route-optimizer` + ORS `/optimization` (VROOM) |
-| **Escaneo de códigos** | CameraX + ML Kit |
-| **Tiempo real** | Parcial: los repositorios refrescan datos tras cada operación; suscripción Realtime completa pendiente de pulir |
-| **Modo offline** | No implementado (requiere Room — ver [Próximos pasos](#próximos-pasos)) |
+| **Rutas punto a punto** | OpenRouteService `/directions` (chofer: auto-ruta a sus paquetes en orden + búsqueda manual) |
+| **Optimización de rutas** | Edge Function `daily-route-optimizer` + ORS `/optimization` (VROOM); escribe `route_order` |
+| **Escaneo de códigos** | CameraX + ML Kit (permiso runtime; valida el código contra el paquete al cambiar de estado) |
+| **Tiempo real** | Parcial: sync por WorkManager (push/pull). Suscripción Realtime completa pendiente |
+| **Modo offline** | Implementado (Room + WorkManager): lectura/escritura local con `pendingSync` y sync al recuperar red |
 
 ### Flujo de paquetes
 
@@ -180,10 +180,10 @@ Barra inferior: **Flota**, **Mapa global**, **Perfil**.
 
 ### Autenticación
 
-- **Login**: email y contraseña reales (Supabase Auth)
-- **Registro**: pantalla **Crear cuenta** con nombre, email, contraseña, confirmación y selector de rol (Chofer / Depósito / Administrador)
+- **Login**: email y contraseña reales (Supabase Auth). La sesión persiste entre aperturas (pantalla Splash que resuelve la sesión y navega al home del rol).
+- **Sin registro público**: el alta de usuarios la hace **solo un admin** desde *Perfil → Crear usuario*, que invoca la Edge Function `admin-create-user` (valida el rol del solicitante server-side y crea el usuario sin cambiar la sesión del admin). Conviene **desactivar los signups** en el dashboard de Supabase.
 
-Tras registrarse, se crea el usuario en `auth.users` y una fila en `profiles` con el rol elegido.
+Al crear un usuario se genera la fila en `auth.users` y su `profiles` con el rol elegido.
 
 ---
 
@@ -220,57 +220,35 @@ TrackItFront/
 
 ## Próximos pasos
 
-Para considerar la app **lista para producción en campo** (choferes con conectividad irregular), conviene abordar lo siguiente en este orden sugerido:
+Ya implementado en esta iteración: **offline-first con Room + WorkManager**, **registro solo por admin**, **sesión persistente (Splash)**, **escaneo con permiso runtime y validación de código**, **optimizer con `route_order` y rebalanceo re-ejecutable**, **auto-ruta del chofer** y **mapa global con auto-zoom + última ubicación**.
 
-### 1. Persistencia local con Room (prioridad alta)
+Pendiente para considerarla **lista para producción en campo**:
 
-**Problema:** hoy todas las lecturas y escrituras dependen de red. Si el chofer pierde señal al entregar, no puede consultar su ruta ni registrar el cambio de estado de forma fiable.
+### 1. Realtime (prioridad media)
 
-**Objetivo:**
+- Suscripción estable a cambios en `packages` (y `trucks`) que actualice Room; la UI ya observa Flows de Room.
+- Hoy el refresco es por `SyncWorker` (push/pull) al operar o recuperar red.
 
-- Base de datos local (Room) con entidades alineadas a `packages` (y, si aplica, estado de sincronización por fila).
-- **Lectura offline:** el chofer ve su ruta y detalle de paquetes desde la caché local.
-- **Escritura offline:** acciones como “marcar entregado” o “cargado” se guardan en Room con flag `pending_sync`.
-- **Sincronización:** al recuperar conexión, un `SyncWorker` (WorkManager) sube cambios a Supabase y reconcilia conflictos (estrategia last-write-wins o por timestamp).
+### 2. Resolución de conflictos de sync
 
-Casos de uso críticos:
+- La estrategia actual es last-write-wins por `updated_at`. Revisar casos borde (dos choferes / admin editando el mismo paquete).
 
-| Rol | Acción offline |
-|-----|----------------|
-| Chofer | Ver ruta asignada, abrir detalle, escanear y marcar `ENTREGADO` / `CARGADO` |
-| Depósito | Opcional: cola de altas de paquetes si no hay red en el depósito |
-| Admin | Menor prioridad (suele tener Wi‑Fi en oficina) |
-
-### 2. Realtime y refresco de datos
-
-- Suscripción estable a cambios en `packages` (y `trucks`) para que admin y choferes vean actualizaciones sin reiniciar pantalla.
-- Combinar Realtime con Room: Realtime actualiza la BD local; la UI observa Flow de Room.
-
-### 3. Sesión persistente
-
-- Usar `SettingsSessionManager` (o equivalente) en Auth para no pedir login en cada apertura de la app.
-
-### 4. Datos semilla y flota
-
-- Scripts o panel admin para crear camiones (`trucks`) vinculados a perfiles `DRIVER`.
-- Validar que la Edge Function solo asigne paquetes con coordenadas (geocoding obligatorio en ingreso).
-
-### 5. Notificaciones push (opcional)
+### 3. Notificaciones push (opcional)
 
 - FCM cuando el cron asigne la ruta del día al chofer.
 
-### 6. Endurecimiento
+### 4. Endurecimiento
 
-- Manejo de errores de red en UI (mensajes en español).
 - Tests de integración para repositorios y flujo de sincronización offline.
 - Confirmación de email en Supabase si el proyecto lo exige en producción.
+- Auditar políticas RLS (ver `db/`) antes de exponer a producción.
 
 ---
 
 ## Limitaciones conocidas
 
-- Sin caché offline: la app requiere conexión para la mayoría de operaciones.
+- **Realtime** no está activo: la propagación entre dispositivos depende del ciclo de `SyncWorker`.
 - La optimización diaria depende de paquetes con `destination_lat` / `destination_lon` y camiones con `driver_id` en Supabase.
-- El rol en registro lo elige el usuario; en producción conviene restringir quién puede registrarse como `ADMIN`.
-- Algunas transiciones de estado (`CARGADO` → `EN_CAMINO`) pueden no estar expuestas en toda la UI.
+- La transición `CARGADO` → `EN_CAMINO` no está expuesta como acción explícita: el chofer entrega directamente desde `CARGADO`/`EN_CAMINO`.
+- El depósito marca `CARGADO` por selección (checkbox) desde la lista de `EN_DEPOSITO`/`ASIGNADO`, sin re-escanear cada paquete.
 

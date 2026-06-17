@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
 import com.trackit.feature.admin.assign.AssignRouteScreen
+import com.trackit.feature.admin.createuser.CreateUserScreen
 import com.trackit.feature.admin.fleet.FleetScreen
 import com.trackit.feature.admin.globalmap.GlobalMapScreen
 import com.trackit.feature.profile.ProfileScreen
@@ -34,7 +35,16 @@ fun NavGraphBuilder.adminNavGraph(navController: NavHostController) {
                             inclusive = true
                         }
                     }
+                },
+                onCreateUser = {
+                    navController.navigate(Routes.ADMIN_CREATE_USER)
                 }
+            )
+        }
+        composable(Routes.ADMIN_CREATE_USER) {
+            CreateUserScreen(
+                onBack = { navController.popBackStack() },
+                onUserCreated = { navController.popBackStack() }
             )
         }
         composable(

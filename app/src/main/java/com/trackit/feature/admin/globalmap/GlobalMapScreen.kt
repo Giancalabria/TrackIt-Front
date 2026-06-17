@@ -1,17 +1,28 @@
 package com.trackit.feature.admin.globalmap
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.drawable.BitmapDrawable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,15 +30,29 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.trackit.BuildConfig
 import com.trackit.core.ui.theme.DeepForestGreen
+import com.trackit.core.ui.theme.LightBlue
 import com.trackit.core.ui.theme.TerracottaOrange
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
+private val lastSeenFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("dd/MM HH:mm").withZone(ZoneId.systemDefault())
+
+private fun formatLastSeen(instant: Instant?): String =
+    instant?.let { "última vez: ${lastSeenFormatter.format(it)}" } ?: "sin ubicación reciente"
 
 private fun createTruckMarkerDrawable(
     context: android.content.Context,
@@ -63,16 +88,56 @@ private fun createTruckMarkerDrawable(
     canvas.drawPath(pinPath, bgPaint)
     canvas.drawPath(pinPath, strokePaint)
 
-    val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    val innerRadius = 10f * d
+    val innerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = android.graphics.Color.WHITE
-        textAlign = Paint.Align.CENTER
-        textSize = 18f * d
-        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+        style = Paint.Style.FILL
     }
-    val textY = circleCenterY + (textPaint.textSize / 3f)
-    canvas.drawText("T", centerX, textY, textPaint)
+    canvas.drawCircle(centerX, circleCenterY, innerRadius, innerPaint)
+
+    // Draw a small truck icon shape inside the white circle
+    val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = backgroundColor
+        style = Paint.Style.FILL
+    }
+    val iconSize = 6f * d
+    val rect = RectF(
+        centerX - iconSize,
+        circleCenterY - iconSize / 2,
+        centerX + iconSize,
+        circleCenterY + iconSize / 2
+    )
+    canvas.drawRect(rect, iconPaint) // Truck body
+    canvas.drawRect(
+        centerX + iconSize / 2,
+        circleCenterY - iconSize,
+        centerX + iconSize,
+        circleCenterY,
+        iconPaint
+    ) // Truck cabin
 
     return BitmapDrawable(context.resources, bitmap)
+}
+
+private fun createAdminLocationIcon(context: android.content.Context, fillColor: Int): Bitmap {
+    val d = context.resources.displayMetrics.density
+    val size = (44 * d).toInt().coerceAtLeast(1)
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val strokeW = 4.5f * d
+    val radius = size / 2f - strokeW
+    val cx = size / 2f
+    val cy = size / 2f
+    canvas.drawCircle(cx, cy, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = fillColor; style = Paint.Style.FILL
+    })
+    canvas.drawCircle(cx, cy, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE; style = Paint.Style.STROKE; strokeWidth = strokeW
+    })
+    canvas.drawCircle(cx, cy, 3.2f * d, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE; style = Paint.Style.FILL
+    })
+    return bitmap
 }
 
 @Composable
@@ -82,24 +147,97 @@ fun GlobalMapScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        hasLocationPermission =
+            grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         androidx.compose.runtime.LaunchedEffect(Unit) {
             Configuration.getInstance().userAgentValue = BuildConfig.APPLICATION_ID
+            if (!hasLocationPermission) {
+                permissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
+            }
         }
 
-        val mapView = androidx.compose.runtime.remember { MapView(context) }
+        val mapView = remember { MapView(context) }
+
+        androidx.compose.runtime.LaunchedEffect(uiState.trucks) {
+            val points = uiState.trucks.mapNotNull { truck ->
+                val lat = truck.lastLat
+                val lon = truck.lastLon
+                if (lat != null && lon != null) GeoPoint(lat, lon) else null
+            }
+
+            if (points.isNotEmpty()) {
+                if (points.size == 1) {
+                    mapView.controller.setZoom(13.0)
+                    mapView.controller.setCenter(points.first())
+                } else {
+                    mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(points), true, 120)
+                }
+            }
+        }
+
+        val myLocationOverlay = remember(hasLocationPermission) {
+            if (!hasLocationPermission) return@remember null
+            MyLocationNewOverlay(GpsMyLocationProvider(context), mapView).apply {
+                val icon = createAdminLocationIcon(context, LightBlue.toArgb())
+                setPersonIcon(icon)
+                setDirectionArrow(icon, icon)
+                enableMyLocation()
+                enableFollowLocation()
+            }
+        }
+
+        androidx.compose.runtime.DisposableEffect(myLocationOverlay) {
+            myLocationOverlay?.let {
+                if (!mapView.overlays.contains(it)) {
+                    mapView.overlays.add(it)
+                }
+            }
+            onDispose {
+                myLocationOverlay?.let {
+                    it.disableMyLocation()
+                    mapView.overlays.remove(it)
+                }
+            }
+        }
+
+        androidx.compose.runtime.DisposableEffect(context) {
+            onDispose {
+                mapView.onDetach()
+            }
+        }
 
         AndroidView(
             factory = {
                 mapView.apply {
                     setTileSource(TileSourceFactory.MAPNIK)
                     setMultiTouchControls(true)
-                    controller.setZoom(12.0)
+                    controller.setZoom(10.0)
                     controller.setCenter(GeoPoint(-34.6037, -58.3816))
                 }
             },
             modifier = Modifier.fillMaxSize(),
             update = { mv ->
+                // Remove only truck markers — keep MyLocationOverlay untouched.
                 val markerOverlays = mv.overlays.filterIsInstance<Marker>()
                 mv.overlays.removeAll(markerOverlays)
 
@@ -107,10 +245,11 @@ fun GlobalMapScreen(
                     val lat = truck.lastLat
                     val lon = truck.lastLon
                     if (lat != null && lon != null) {
+                        val point = GeoPoint(lat, lon)
                         val marker = Marker(mv).apply {
-                            position = GeoPoint(lat, lon)
-                            title = "${truck.id} · ${truck.plate}"
-                            snippet = truck.driverName
+                            position = point
+                            title = "${truck.driverName} · ${truck.plate}"
+                            snippet = formatLastSeen(truck.lastLocationAt)
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                             icon = createTruckMarkerDrawable(
                                 context = context,
@@ -124,6 +263,24 @@ fun GlobalMapScreen(
                 mv.invalidate()
             }
         )
+
+        FloatingActionButton(
+            onClick = {
+                myLocationOverlay?.myLocation?.let { mapView.controller.animateTo(it) }
+                    ?: permissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Icon(Icons.Default.MyLocation, contentDescription = "Mi ubicación")
+        }
 
         if (!uiState.isLoading) {
             MetricsOverlay(

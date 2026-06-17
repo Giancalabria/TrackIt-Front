@@ -21,7 +21,7 @@ data class LoginUiState(
 )
 
 class LoginViewModel(
-    private val authRepository: IAuthRepository = SupabaseAuthRepository(SupabaseLocator.client)
+    private val authRepository: IAuthRepository = SupabaseLocator.authRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()

@@ -6,12 +6,20 @@ import com.trackit.data.model.Package
 import com.trackit.data.model.PackageStatus
 import com.trackit.data.repository.IFleetRepository
 import com.trackit.data.repository.IPackageRepository
-import com.trackit.data.repository.SupabaseFleetRepository
 import com.trackit.data.repository.SupabaseLocator
-import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.ZoneId
+
+private val ARGENTINA_ZONE: ZoneId = ZoneId.of("America/Argentina/Buenos_Aires")
+
+/** Packages already loaded onto the truck (or beyond) can't be unassigned from here. */
+private fun Package.isLocked(): Boolean = when (status) {
+    PackageStatus.CARGADO, PackageStatus.EN_CAMINO, PackageStatus.ENTREGADO, PackageStatus.FALLIDO -> true
+    else -> false
+}
 
 data class AssignRouteUiState(
     val driverName: String = "",
@@ -24,8 +32,8 @@ data class AssignRouteUiState(
 )
 
 class AssignRouteViewModel(
-    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client),
-    private val fleetRepository: IFleetRepository = SupabaseFleetRepository(SupabaseLocator.client)
+    private val packageRepository: IPackageRepository = SupabaseLocator.packageRepository,
+    private val fleetRepository: IFleetRepository = SupabaseLocator.fleetRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AssignRouteUiState())
@@ -48,18 +56,35 @@ class AssignRouteViewModel(
             val truck = fleetRepository.trucks.value.find { it.driverId == id }
             val driverName = truck?.driverName ?: "Chofer"
 
+            val today = LocalDate.now(ARGENTINA_ZONE)
+
             packageRepository.packages.collect { allPackages ->
-                val inWarehouse = allPackages.filter { it.status == PackageStatus.EN_DEPOSITO }
-                val assignedToDriver = allPackages.filter {
-                    it.assignedDriverId == id && it.status != PackageStatus.ENTREGADO
+                // Only today's depot packages are available to assign for today's route.
+                val inWarehouse = allPackages.filter {
+                    it.status == PackageStatus.EN_DEPOSITO && it.scheduledDate == today
                 }
+                val assignedToDriver = allPackages
+                    .filter { it.assignedDriverId == id && it.status != PackageStatus.ENTREGADO }
+                    .sortedWith(compareBy<Package, Int?>(nullsLast()) { it.routeOrder }.thenBy { it.eta })
 
                 _uiState.update { state ->
+                    // Preserve any manual reordering while membership of the route is unchanged.
+                    val sameMembership =
+                        state.currentRoutePackages.map { it.id }.toSet() == assignedToDriver.map { it.id }.toSet()
+                    val current = if (sameMembership && state.currentRoutePackages.isNotEmpty()) {
+                        // Refresh fields (status, etc.) but keep the user's order.
+                        val byId = assignedToDriver.associateBy { it.id }
+                        state.currentRoutePackages.mapNotNull { byId[it.id] }
+                    } else {
+                        assignedToDriver
+                    }
+
                     state.copy(
                         driverName = driverName,
                         availablePackages = inWarehouse,
-                        currentRoutePackages = assignedToDriver,
-                        selectedPackageIds = assignedToDriver.map { it.id }.toSet(),
+                        currentRoutePackages = current,
+                        selectedPackageIds = current.map { it.id }.toSet() +
+                            state.selectedPackageIds.intersect(inWarehouse.map { it.id }.toSet()),
                         isLoading = false
                     )
                 }
@@ -69,12 +94,31 @@ class AssignRouteViewModel(
 
     fun togglePackageSelection(packageId: String) {
         _uiState.update { state ->
+            // Don't allow unselecting a package that is already loaded (or beyond).
+            val locked = state.currentRoutePackages.any { it.id == packageId && it.isLocked() }
+            if (locked) return@update state
+
             val newSelection = if (state.selectedPackageIds.contains(packageId)) {
                 state.selectedPackageIds - packageId
             } else {
                 state.selectedPackageIds + packageId
             }
             state.copy(selectedPackageIds = newSelection)
+        }
+    }
+
+    fun moveUp(packageId: String) = move(packageId, -1)
+    fun moveDown(packageId: String) = move(packageId, +1)
+
+    private fun move(packageId: String, delta: Int) {
+        _uiState.update { state ->
+            val list = state.currentRoutePackages.toMutableList()
+            val index = list.indexOfFirst { it.id == packageId }
+            val target = index + delta
+            if (index < 0 || target < 0 || target >= list.size) return@update state
+            val item = list.removeAt(index)
+            list.add(target, item)
+            state.copy(currentRoutePackages = list)
         }
     }
 
@@ -86,8 +130,10 @@ class AssignRouteViewModel(
             val currentState = _uiState.value
             val currentAssignedIds = currentState.currentRoutePackages.map { it.id }.toSet()
             val newSelectionIds = currentState.selectedPackageIds
+            // Locked packages (CARGADO+) can never be unassigned from here.
+            val lockedIds = currentState.currentRoutePackages.filter { it.isLocked() }.map { it.id }.toSet()
 
-            val toUnassign = currentAssignedIds - newSelectionIds
+            val toUnassign = (currentAssignedIds - newSelectionIds) - lockedIds
             var failedCount = 0
 
             toUnassign.forEach { pkgId ->
@@ -99,6 +145,20 @@ class AssignRouteViewModel(
             if (toAssign.isNotEmpty()) {
                 val result = packageRepository.assignPackagesToDriver(toAssign.toList(), id)
                 if (result.isFailure) failedCount += toAssign.size
+            }
+
+            // Persist the manual visit order (route_order) for the packages staying in the route.
+            val orderedKept = currentState.currentRoutePackages.filter {
+                it.id in newSelectionIds && it.id !in toUnassign
+            }
+            orderedKept.forEachIndexed { index, pkg ->
+                val desiredOrder = index + 1
+                if (pkg.routeOrder != desiredOrder) {
+                    val result = packageRepository.updatePackage(
+                        pkg.copy(routeOrder = desiredOrder, assignedDriverId = id)
+                    )
+                    if (result.isFailure) failedCount++
+                }
             }
 
             if (failedCount > 0) {

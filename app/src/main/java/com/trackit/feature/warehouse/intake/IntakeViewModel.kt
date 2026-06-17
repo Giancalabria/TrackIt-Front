@@ -9,7 +9,6 @@ import com.trackit.data.repository.IMapRepository
 import com.trackit.data.repository.IPackageRepository
 import com.trackit.data.repository.MapRepository
 import com.trackit.data.repository.SupabaseLocator
-import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -35,7 +34,7 @@ data class IntakeUiState(
 
 @OptIn(FlowPreview::class)
 class IntakeViewModel(
-    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client),
+    private val packageRepository: IPackageRepository = SupabaseLocator.packageRepository,
     private val mapRepository: IMapRepository = MapRepository.getInstance()
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(IntakeUiState())
@@ -149,7 +148,8 @@ class IntakeViewModel(
                 destinationLon = currentState.destinationLon,
                 size = currentState.size,
                 isFragile = currentState.isFragile,
-                scheduledDate = currentState.scheduledDate
+                scheduledDate = currentState.scheduledDate,
+                barcode = currentState.barcode.trim()
             ).fold(
                 onSuccess = {
                     _uiState.update {

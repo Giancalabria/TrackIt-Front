@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
 }
 
 fun readEnvFile(rootDir: File): Map<String, String> {
@@ -62,6 +63,11 @@ android {
         jvmTarget = "17"
     }
 
+    ksp {
+        arg("room.schemaLocation", "$projectDir/schemas")
+        arg("room.incremental", "true")
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -83,6 +89,13 @@ configurations.all {
         force("org.jetbrains.kotlin:kotlin-stdlib:1.9.23")
         force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.23")
         force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.23")
+        // 16 KB page size alignment: keep CameraX/ML Kit native libs at versions that
+        // ship 16 KB-aligned .so files even if a transitive dep requests older ones.
+        force("androidx.camera:camera-core:1.4.2")
+        force("androidx.camera:camera-camera2:1.4.2")
+        force("androidx.camera:camera-lifecycle:1.4.2")
+        force("androidx.camera:camera-view:1.4.2")
+        force("com.google.mlkit:barcode-scanning:17.3.0")
     }
 }
 
@@ -101,6 +114,14 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+
+    // Room (local persistence / offline single source of truth)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    // WorkManager (background sync to Supabase)
+    implementation(libs.androidx.work.runtime.ktx)
 
     // Maps and Networking
     implementation(libs.osmdroid)

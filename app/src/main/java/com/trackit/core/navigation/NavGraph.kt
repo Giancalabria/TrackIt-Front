@@ -14,12 +14,19 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.trackit.data.model.User
 import com.trackit.data.model.UserRole
 import com.trackit.feature.auth.LoginScreen
-import com.trackit.feature.auth.RegisterScreen
+import com.trackit.feature.auth.SplashScreen
 import com.trackit.feature.driver.truck.DriverTruckSetupScreen
 
 private data class NavItem(val route: String, val label: String, val icon: ImageVector)
+
+private fun homeRouteFor(user: User): String = when (user.role) {
+    UserRole.DRIVER -> Routes.DRIVER_SETUP_TRUCK
+    UserRole.WAREHOUSE -> Routes.WAREHOUSE
+    UserRole.ADMIN -> Routes.ADMIN
+}
 
 @Composable
 fun TrackItNavHost(
@@ -30,6 +37,7 @@ fun TrackItNavHost(
 
     val driverItems = listOf(
         NavItem(Routes.DRIVER_ROUTE, "Ruta", Icons.Default.Route),
+        NavItem(Routes.DRIVER_MAP, "Mapa", Icons.Default.Map),
         NavItem(Routes.DRIVER_PROFILE, "Perfil", Icons.Default.Person)
     )
 
@@ -86,39 +94,26 @@ fun TrackItNavHost(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.LOGIN,
+            startDestination = Routes.SPLASH,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Routes.LOGIN) {
-                LoginScreen(
-                    onLoginSuccess = { user ->
-                        val destination = when (user.role) {
-                            UserRole.DRIVER -> Routes.DRIVER_SETUP_TRUCK
-                            UserRole.WAREHOUSE -> Routes.WAREHOUSE
-                            UserRole.ADMIN -> Routes.ADMIN
-                        }
+            composable(Routes.SPLASH) {
+                SplashScreen(
+                    onResolved = { user ->
+                        val destination = if (user != null) homeRouteFor(user) else Routes.LOGIN
                         navController.navigate(destination) {
-                            popUpTo(Routes.LOGIN) { inclusive = true }
+                            popUpTo(Routes.SPLASH) { inclusive = true }
                         }
-                    },
-                    onNavigateToRegister = { navController.navigate(Routes.REGISTER) }
+                    }
                 )
             }
 
-            composable(Routes.REGISTER) {
-                RegisterScreen(
-                    onRegisterSuccess = { user ->
-                        val destination = when (user.role) {
-                            UserRole.DRIVER -> Routes.DRIVER_SETUP_TRUCK
-                            UserRole.WAREHOUSE -> Routes.WAREHOUSE
-                            UserRole.ADMIN -> Routes.ADMIN
-                        }
-                        navController.navigate(destination) {
+            composable(Routes.LOGIN) {
+                LoginScreen(
+                    onLoginSuccess = { user ->
+                        navController.navigate(homeRouteFor(user)) {
                             popUpTo(Routes.LOGIN) { inclusive = true }
                         }
-                    },
-                    onNavigateToLogin = {
-                        navController.popBackStack()
                     }
                 )
             }

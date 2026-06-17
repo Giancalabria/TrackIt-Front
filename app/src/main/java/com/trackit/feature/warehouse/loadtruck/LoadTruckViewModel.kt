@@ -7,9 +7,7 @@ import com.trackit.data.model.PackageStatus
 import com.trackit.data.model.Truck
 import com.trackit.data.repository.IFleetRepository
 import com.trackit.data.repository.IPackageRepository
-import com.trackit.data.repository.SupabaseFleetRepository
 import com.trackit.data.repository.SupabaseLocator
-import com.trackit.data.repository.SupabasePackageRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,8 +33,8 @@ data class LoadTruckUiState(
 )
 
 class LoadTruckViewModel(
-    private val packageRepository: IPackageRepository = SupabasePackageRepository(SupabaseLocator.client),
-    private val fleetRepository: IFleetRepository = SupabaseFleetRepository(SupabaseLocator.client)
+    private val packageRepository: IPackageRepository = SupabaseLocator.packageRepository,
+    private val fleetRepository: IFleetRepository = SupabaseLocator.fleetRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoadTruckUiState())
     val uiState: StateFlow<LoadTruckUiState> = _uiState.asStateFlow()
@@ -50,8 +48,13 @@ class LoadTruckViewModel(
         }
             .onEach { (allPackages, trucks) ->
                 _uiState.update { state ->
+                    // The warehouse can load packages that are still in the depot OR already
+                    // assigned by the optimizer (handoff: ASIGNADO -> CARGADO).
                     val warehousePackages = allPackages
-                        .filter { packageItem -> packageItem.status == PackageStatus.EN_DEPOSITO }
+                        .filter { packageItem ->
+                            packageItem.status == PackageStatus.EN_DEPOSITO ||
+                                packageItem.status == PackageStatus.ASIGNADO
+                        }
                         .sortedBy { packageItem -> packageItem.eta }
                     val availablePackageIds = warehousePackages
                         .map { packageItem -> packageItem.id }

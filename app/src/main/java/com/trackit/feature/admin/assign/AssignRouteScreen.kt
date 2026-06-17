@@ -3,8 +3,11 @@ package com.trackit.feature.admin.assign
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -96,17 +99,35 @@ fun AssignRouteScreen(
                         if (uiState.currentRoutePackages.isNotEmpty()) {
                             item {
                                 Text(
-                                    text = "En ruta actual",
+                                    text = "En ruta actual (orden de visita)",
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
-                            items(uiState.currentRoutePackages) { pkg ->
-                                PackageSelectionItem(
-                                    pkg = pkg,
-                                    isSelected = uiState.selectedPackageIds.contains(pkg.id),
-                                    onToggle = { viewModel.togglePackageSelection(pkg.id) }
-                                )
+                            itemsIndexed(uiState.currentRoutePackages) { index, pkg ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        PackageSelectionItem(
+                                            pkg = pkg,
+                                            isSelected = uiState.selectedPackageIds.contains(pkg.id),
+                                            onToggle = { viewModel.togglePackageSelection(pkg.id) }
+                                        )
+                                    }
+                                    Column {
+                                        IconButton(
+                                            onClick = { viewModel.moveUp(pkg.id) },
+                                            enabled = index > 0
+                                        ) {
+                                            Icon(Icons.Default.ArrowUpward, contentDescription = "Subir")
+                                        }
+                                        IconButton(
+                                            onClick = { viewModel.moveDown(pkg.id) },
+                                            enabled = index < uiState.currentRoutePackages.lastIndex
+                                        ) {
+                                            Icon(Icons.Default.ArrowDownward, contentDescription = "Bajar")
+                                        }
+                                    }
+                                }
                             }
                         }
 

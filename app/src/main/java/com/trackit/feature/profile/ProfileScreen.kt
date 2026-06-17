@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,6 +23,7 @@ import com.trackit.data.model.UserRole
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit,
+    onCreateUser: (() -> Unit)? = null,
     viewModel: ProfileViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -60,6 +62,18 @@ fun ProfileScreen(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+
+        if (onCreateUser != null) {
+            OutlinedButton(
+                onClick = onCreateUser,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isLoading
+            ) {
+                Text("Crear usuario")
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
         Button(
             onClick = { viewModel.logout(onLoggedOut = onLogout) },
             modifier = Modifier.fillMaxWidth(),

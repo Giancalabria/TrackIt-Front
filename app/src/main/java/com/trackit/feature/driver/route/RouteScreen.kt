@@ -22,49 +22,63 @@ fun RouteScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var scanningPackage by remember { mutableStateOf<Package?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        if (uiState.isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else if (uiState.errorMessage != null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = uiState.errorMessage!!,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        } else if (uiState.packages.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "No tienes paquetes asignados para hoy.",
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
+    // Show delivery/validation errors as a snackbar so the route list stays visible.
+    LaunchedEffect(uiState.errorMessage, uiState.packages.size) {
+        val message = uiState.errorMessage
+        if (message != null && uiState.packages.isNotEmpty()) {
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearError()
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { innerPadding ->
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            if (uiState.isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else if (uiState.errorMessage != null && uiState.packages.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "Mi Ruta de Hoy",
-                        style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        text = uiState.errorMessage!!,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.error
                     )
                 }
-                
-                items(uiState.packages, key = { it.id }) { packageItem ->
-                    UnifiedPackageCard(
-                        packageItem = packageItem,
-                        onActionClick = { 
-                            scanningPackage = packageItem
-                        },
-                        onCardClick = { onPackageClick(packageItem.id) }
+            } else if (uiState.packages.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "No tienes paquetes asignados para hoy.",
+                        style = MaterialTheme.typography.bodyLarge
                     )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    item {
+                        Text(
+                            text = "Mi Ruta de Hoy",
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+
+                    items(uiState.packages, key = { it.id }) { packageItem ->
+                        UnifiedPackageCard(
+                            packageItem = packageItem,
+                            onActionClick = {
+                                scanningPackage = packageItem
+                            },
+                            onCardClick = { onPackageClick(packageItem.id) }
+                        )
+                    }
                 }
             }
         }
@@ -81,7 +95,7 @@ fun RouteScreen(
             title = scannerTitle,
             onCodeScanned = { code ->
                 if (pkg.status == PackageStatus.CARGADO || pkg.status == PackageStatus.EN_CAMINO) {
-                    viewModel.deliverPackage(pkg.id)
+                    viewModel.deliverPackage(pkg.id, code)
                 }
                 scanningPackage = null
             },

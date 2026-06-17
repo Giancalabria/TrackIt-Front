@@ -219,14 +219,12 @@ fun PackageDetailScreen(
                             text = "Tamaño: ${packageItem.size.toLabel()}",
                             style = MaterialTheme.typography.bodyMedium
                         )
-                        Text(
-                            text = "Peso estimado: 4,5 kg",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            text = "Dimensiones: 40 x 30 x 20 cm",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        if (packageItem.barcode.isNotBlank()) {
+                            Text(
+                                text = "Código: ${packageItem.barcode}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                         if (packageItem.isFragile) {
                             SuggestionChip(
                                 onClick = {},

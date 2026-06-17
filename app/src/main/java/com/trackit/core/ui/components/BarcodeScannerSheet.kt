@@ -1,6 +1,10 @@
 package com.trackit.core.ui.components
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -33,11 +37,35 @@ fun BarcodeScannerSheet(
     onDismiss: () -> Unit,
     title: String = "Escanear Código"
 ) {
+    val context = LocalContext.current
     var manualCode by remember { mutableStateOf("") }
-    var hasCameraPermission by remember { mutableStateOf(false) }
+
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted -> hasCameraPermission = granted }
 
     LaunchedEffect(Unit) {
-        hasCameraPermission = true 
+        if (!hasCameraPermission) {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    // Debounce: forward the very first valid code only, ML Kit fires many times per second.
+    var alreadyScanned by remember { mutableStateOf(false) }
+    val handleCode: (String) -> Unit = remember(onCodeScanned) {
+        { code ->
+            val trimmed = code.trim()
+            if (!alreadyScanned && trimmed.isNotBlank()) {
+                alreadyScanned = true
+                onCodeScanned(trimmed)
+            }
+        }
     }
 
     ModalBottomSheet(
@@ -45,13 +73,13 @@ fun BarcodeScannerSheet(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         dragHandle = { BottomSheetDefaults.DragHandle() },
         containerColor = MaterialTheme.colorScheme.surface,
-        windowInsets = WindowInsets.navigationBars // Asegura que no se tape con la barra de sistema
+        windowInsets = WindowInsets.navigationBars
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 40.dp), // Espacio extra abajo para el botón
+                .padding(bottom = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -67,7 +95,7 @@ fun BarcodeScannerSheet(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(140.dp)
+                    .height(220.dp)
                     .clip(RoundedCornerShape(20.dp))
                     .background(Color.Black)
                     .border(
@@ -77,23 +105,39 @@ fun BarcodeScannerSheet(
                     )
             ) {
                 if (hasCameraPermission) {
-                    CameraPreview(onBarcodeDetected = { code ->
-                        onCodeScanned(code)
-                    })
-                    
+                    CameraPreview(onBarcodeDetected = handleCode)
+
+                    // Aiming frame, centered over the preview.
                     Box(
                         modifier = Modifier
-                            .size(180.dp, 60.dp)
-                            .border(2.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            .size(220.dp, 90.dp)
+                            .border(2.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
                             .align(Alignment.Center)
                     )
                 } else {
-                    Text(
-                        "Cámara no disponible",
-                        color = Color.Gray,
-                        modifier = Modifier.align(Alignment.Center),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            "Necesitamos permiso para usar la cámara y escanear códigos.",
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                        Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
+                            Text("Permitir cámara")
+                        }
+                        Text(
+                            "También podés ingresar el código manualmente abajo.",
+                            color = Color.Gray,
+                            style = MaterialTheme.typography.labelMedium,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
 
@@ -113,7 +157,7 @@ fun BarcodeScannerSheet(
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
-                
+
                 OutlinedTextField(
                     value = manualCode,
                     onValueChange = { manualCode = it },
@@ -133,7 +177,7 @@ fun BarcodeScannerSheet(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Button(
-                    onClick = { if (manualCode.isNotBlank()) onCodeScanned(manualCode) },
+                    onClick = { handleCode(manualCode) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(58.dp),
@@ -157,22 +201,29 @@ fun CameraPreview(onBarcodeDetected: (String) -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
-    
+    val scanner = remember { BarcodeScanning.getClient() }
+
+    // Release the camera and the ML Kit scanner when the preview leaves composition.
+    DisposableEffect(Unit) {
+        onDispose {
+            runCatching { cameraProviderFuture.get().unbindAll() }
+            runCatching { scanner.close() }
+        }
+    }
+
     AndroidView(
         factory = { ctx ->
             val previewView = PreviewView(ctx).apply {
                 scaleType = PreviewView.ScaleType.FILL_CENTER
             }
             val executor = ContextCompat.getMainExecutor(ctx)
-            
+
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
                 val preview = Preview.Builder().build().also {
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
 
-                val scanner = BarcodeScanning.getClient()
-                
                 val imageAnalysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()

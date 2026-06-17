@@ -22,10 +22,10 @@ fun NavGraphBuilder.warehouseNavGraph(navController: NavHostController) {
             )
         }
         composable(Routes.WAREHOUSE_LOAD_TRUCK) {
-            LoadTruckScreen()
+            LoadTruckScreen(onBack = { navController.navigateUp() })
         }
         composable(Routes.WAREHOUSE_INTAKE) {
-            IntakeScreen()
+            IntakeScreen(onBack = { navController.navigateUp() })
         }
         composable(Routes.WAREHOUSE_HISTORY) {
             HistoryScreen()
