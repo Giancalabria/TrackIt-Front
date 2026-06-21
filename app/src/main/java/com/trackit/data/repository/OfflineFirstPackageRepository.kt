@@ -147,6 +147,7 @@ class OfflineFirstPackageRepository(
                 scheduledDate = scheduledDate,
                 status = PackageStatus.EN_DEPOSITO,
                 barcode = barcode,
+                registeredByWarehouse = true,
                 eta = "" // Placeholder for eta
             )
             database.packageDao().upsert(newPackage.toEntity(pendingSync = true))

@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
@@ -23,6 +24,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -100,6 +102,8 @@ fun LoadTruckScreen(
             LoadTruckStep.SELECT_PACKAGES -> PackageSelectionContent(
                 packages = uiState.packages,
                 selectedPackageIds = uiState.selectedPackageIds,
+                searchQuery = uiState.searchQuery,
+                onSearchQueryChange = viewModel::onSearchQueryChange,
                 onPackageClick = viewModel::togglePackage,
                 modifier = Modifier.padding(padding)
             )
@@ -119,42 +123,60 @@ fun LoadTruckScreen(
 private fun PackageSelectionContent(
     packages: List<Package>,
     selectedPackageIds: Set<String>,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
     onPackageClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (packages.isEmpty()) {
-        Box(
-            modifier = modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "No hay paquetes en depósito para cargar.",
-                style = MaterialTheme.typography.bodyLarge
-            )
-        }
-        return
-    }
+    Column(modifier = modifier.fillMaxSize()) {
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            placeholder = { Text("Buscar por cliente...") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            singleLine = true,
+            shape = MaterialTheme.shapes.medium
+        )
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Text(
-                text = "Seleccioná los paquetes que van al camión (depósito y asignados).",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
+        if (packages.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (searchQuery.isEmpty()) 
+                        "No hay paquetes en depósito para cargar." 
+                    else 
+                        "No se encontraron paquetes para \"$searchQuery\"",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Text(
+                        text = "Seleccioná los paquetes que van al camión (depósito y asignados).",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
 
-        items(packages, key = { it.id }) { packageItem ->
-            SelectablePackageCard(
-                packageItem = packageItem,
-                selected = packageItem.id in selectedPackageIds,
-                onClick = { onPackageClick(packageItem.id) }
-            )
+                items(packages, key = { it.id }) { packageItem ->
+                    SelectablePackageCard(
+                        packageItem = packageItem,
+                        selected = packageItem.id in selectedPackageIds,
+                        onClick = { onPackageClick(packageItem.id) }
+                    )
+                }
+            }
         }
     }
 }

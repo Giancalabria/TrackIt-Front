@@ -26,6 +26,7 @@ data class LoadTruckUiState(
     val packages: List<Package> = emptyList(),
     val trucks: List<Truck> = emptyList(),
     val selectedPackageIds: Set<String> = emptySet(),
+    val searchQuery: String = "",
     val step: LoadTruckStep = LoadTruckStep.SELECT_PACKAGES,
     val successMessage: String? = null,
     val errorMessage: String? = null,
@@ -39,21 +40,23 @@ class LoadTruckViewModel(
     private val _uiState = MutableStateFlow(LoadTruckUiState())
     val uiState: StateFlow<LoadTruckUiState> = _uiState.asStateFlow()
 
+    private val _searchQuery = MutableStateFlow("")
+
     init {
         combine(
             packageRepository.packages,
-            fleetRepository.trucks
-        ) { allPackages, trucks ->
-            allPackages to trucks
+            fleetRepository.trucks,
+            _searchQuery
+        ) { allPackages, trucks, query ->
+            Triple(allPackages, trucks, query)
         }
-            .onEach { (allPackages, trucks) ->
+            .onEach { (allPackages, trucks, query) ->
                 _uiState.update { state ->
-                    // The warehouse can load packages that are still in the depot OR already
-                    // assigned by the optimizer (handoff: ASIGNADO -> CARGADO).
                     val warehousePackages = allPackages
                         .filter { packageItem ->
-                            packageItem.status == PackageStatus.EN_DEPOSITO ||
-                                packageItem.status == PackageStatus.ASIGNADO
+                            (packageItem.status == PackageStatus.EN_DEPOSITO ||
+                                packageItem.status == PackageStatus.ASIGNADO) &&
+                                packageItem.clientName.contains(query, ignoreCase = true)
                         }
                         .sortedBy { packageItem -> packageItem.eta }
                     val availablePackageIds = warehousePackages
@@ -63,11 +66,16 @@ class LoadTruckViewModel(
                     state.copy(
                         packages = warehousePackages,
                         trucks = trucks,
+                        searchQuery = query,
                         selectedPackageIds = state.selectedPackageIds.intersect(availablePackageIds)
                     )
                 }
             }
             .launchIn(viewModelScope)
+    }
+
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
     }
 
     fun togglePackage(packageId: String) {
