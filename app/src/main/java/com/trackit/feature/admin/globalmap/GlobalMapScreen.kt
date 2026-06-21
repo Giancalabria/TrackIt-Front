@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.trackit.R
 import com.trackit.BuildConfig
 import com.trackit.core.ui.theme.DeepForestGreen
 import com.trackit.core.ui.theme.LightBlue
@@ -55,66 +56,28 @@ private fun formatLastSeen(instant: Instant?): String =
     instant?.let { "última vez: ${lastSeenFormatter.format(it)}" } ?: "sin ubicación reciente"
 
 private fun createTruckMarkerDrawable(
-    context: android.content.Context,
-    backgroundColor: Int
+    context: android.content.Context
 ): BitmapDrawable {
     val d = context.resources.displayMetrics.density
-    val widthPx = (44 * d).toInt().coerceAtLeast(1)
-    val heightPx = (54 * d).toInt().coerceAtLeast(1)
-    val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+    val sizePx = (48 * d).toInt().coerceAtLeast(1)
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
 
-    val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = backgroundColor
-        style = Paint.Style.FILL
-    }
-    val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = android.graphics.Color.WHITE
-        style = Paint.Style.STROKE
-        strokeWidth = 3.5f * d
-    }
+    val iconDrawable = context.getDrawable(R.drawable.icono_camion)
+    if (iconDrawable != null) {
+        // Redondeamos los bordes de la imagen del camión
+        val radius = 12f * d
+        val rect = RectF(0f, 0f, sizePx.toFloat(), sizePx.toFloat())
+        val path = android.graphics.Path().apply {
+            addRoundRect(rect, radius, radius, android.graphics.Path.Direction.CW)
+        }
 
-    val centerX = widthPx / 2f
-    val circleRadius = 16f * d
-    val circleCenterY = 20f * d
-    val tipY = heightPx - (4f * d)
-
-    val pinPath = Path().apply {
-        addCircle(centerX, circleCenterY, circleRadius, Path.Direction.CW)
-        moveTo(centerX - circleRadius, circleCenterY + (4f * d))
-        quadTo(centerX, tipY, centerX + circleRadius, circleCenterY + (4f * d))
-        close()
+        canvas.save()
+        canvas.clipPath(path)
+        iconDrawable.setBounds(0, 0, sizePx, sizePx)
+        iconDrawable.draw(canvas)
+        canvas.restore()
     }
-    canvas.drawPath(pinPath, bgPaint)
-    canvas.drawPath(pinPath, strokePaint)
-
-    val innerRadius = 10f * d
-    val innerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = android.graphics.Color.WHITE
-        style = Paint.Style.FILL
-    }
-    canvas.drawCircle(centerX, circleCenterY, innerRadius, innerPaint)
-
-    // Draw a small truck icon shape inside the white circle
-    val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = backgroundColor
-        style = Paint.Style.FILL
-    }
-    val iconSize = 6f * d
-    val rect = RectF(
-        centerX - iconSize,
-        circleCenterY - iconSize / 2,
-        centerX + iconSize,
-        circleCenterY + iconSize / 2
-    )
-    canvas.drawRect(rect, iconPaint) // Truck body
-    canvas.drawRect(
-        centerX + iconSize / 2,
-        circleCenterY - iconSize,
-        centerX + iconSize,
-        circleCenterY,
-        iconPaint
-    ) // Truck cabin
 
     return BitmapDrawable(context.resources, bitmap)
 }
@@ -252,8 +215,7 @@ fun GlobalMapScreen(
                             snippet = formatLastSeen(truck.lastLocationAt)
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                             icon = createTruckMarkerDrawable(
-                                context = context,
-                                backgroundColor = DeepForestGreen.toArgb()
+                                context = context
                             )
                         }
                         mv.overlays.add(marker)

@@ -30,6 +30,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.trackit.R
 import com.trackit.BuildConfig
 import com.trackit.core.ui.theme.LightBlue
 import com.trackit.core.ui.theme.TerracottaOrange
@@ -42,51 +43,28 @@ import org.osmdroid.views.overlay.Polyline
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
-private fun createBoxMarkerDrawable(
-    context: android.content.Context,
-    backgroundColor: Int
+private fun createCustomMarker(
+    context: android.content.Context
 ): BitmapDrawable {
-    val sizePx = (40 * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
+    val sizePx = (48 * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
     val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
 
-    val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = backgroundColor }
-    val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = android.graphics.Color.WHITE
-        style = Paint.Style.STROKE
-        strokeWidth = (2.5f * context.resources.displayMetrics.density)
-        strokeJoin = Paint.Join.ROUND
-        strokeCap = Paint.Cap.ROUND
+    val iconDrawable = context.getDrawable(R.drawable.icono_deliver)
+    if (iconDrawable != null) {
+        val radius = 12f * context.resources.displayMetrics.density
+        val rect = RectF(0f, 0f, sizePx.toFloat(), sizePx.toFloat())
+        
+        val path = android.graphics.Path().apply {
+            addRoundRect(rect, radius, radius, android.graphics.Path.Direction.CW)
+        }
+
+        canvas.save()
+        canvas.clipPath(path)
+        iconDrawable.setBounds(0, 0, sizePx, sizePx)
+        iconDrawable.draw(canvas)
+        canvas.restore()
     }
-
-    val radius = 12f * context.resources.displayMetrics.density
-    canvas.drawRoundRect(
-        RectF(0f, 0f, sizePx.toFloat(), sizePx.toFloat()),
-        radius,
-        radius,
-        bgPaint
-    )
-
-    val pad = 11f * context.resources.displayMetrics.density
-    val left = pad
-    val top = pad + (1f * context.resources.displayMetrics.density)
-    val right = sizePx - pad
-    val bottom = sizePx - pad
-
-    canvas.drawRoundRect(
-        RectF(left, top, right, bottom),
-        4f * context.resources.displayMetrics.density,
-        4f * context.resources.displayMetrics.density,
-        iconPaint
-    )
-    canvas.drawLine(
-        sizePx / 2f,
-        top,
-        sizePx / 2f,
-        bottom,
-        iconPaint
-    )
-    canvas.drawLine(left, top + (6f * context.resources.displayMetrics.density), right, top + (6f * context.resources.displayMetrics.density), iconPaint)
 
     return BitmapDrawable(context.resources, bitmap)
 }
@@ -230,13 +208,12 @@ fun MapScreen(
                         val lat = pkg.destinationLat
                         val lon = pkg.destinationLon
                         if (lat != null && lon != null) {
-                            val marker = Marker(mv).apply {
+                                val marker = Marker(mv).apply {
                                 position = GeoPoint(lat, lon)
                                 title = pkg.clientName
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                icon = createBoxMarkerDrawable(
-                                    context = context,
-                                    backgroundColor = TerracottaOrange.toArgb()
+                                icon = createCustomMarker(
+                                    context = context
                                 )
                             }
                             mv.overlays.add(marker)
