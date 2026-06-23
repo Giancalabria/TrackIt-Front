@@ -12,6 +12,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.trackit.core.ui.components.BarcodeScannerSheet
 import com.trackit.core.ui.components.UnifiedPackageCard
+import com.trackit.core.onboarding.CoachMarkKeys
+import com.trackit.core.onboarding.coachMarkTarget
 import com.trackit.data.model.Package
 import com.trackit.data.model.PackageStatus
 
@@ -41,43 +43,49 @@ fun RouteScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-            } else if (uiState.errorMessage != null && uiState.packages.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = uiState.errorMessage!!,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            } else if (uiState.packages.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "No tienes paquetes asignados para hoy.",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    item {
-                        Text(
-                            text = "Mi Ruta de Hoy",
-                            style = MaterialTheme.typography.headlineSmall,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    }
+                Text(
+                    text = "Mi Ruta de Hoy",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                        .coachMarkTarget(CoachMarkKeys.DRIVER_ROUTE_HEADER)
+                )
 
-                    items(uiState.packages, key = { it.id }) { packageItem ->
-                        UnifiedPackageCard(
-                            packageItem = packageItem,
-                            onActionClick = {
-                                scanningPackage = packageItem
-                            },
-                            onCardClick = { onPackageClick(packageItem.id) }
-                        )
+                when {
+                    uiState.errorMessage != null && uiState.packages.isEmpty() -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = uiState.errorMessage!!,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                    uiState.packages.isEmpty() -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "No tienes paquetes asignados para hoy.",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(uiState.packages, key = { it.id }) { packageItem ->
+                                UnifiedPackageCard(
+                                    packageItem = packageItem,
+                                    onActionClick = {
+                                        scanningPackage = packageItem
+                                    },
+                                    onCardClick = { onPackageClick(packageItem.id) }
+                                )
+                            }
+                        }
                     }
                 }
             }

@@ -63,6 +63,15 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        ThemeAppearanceSection(
+            themeMode = uiState.themeMode,
+            useDynamicColor = uiState.useDynamicColor,
+            onThemeModeChange = viewModel::setThemeMode,
+            onDynamicColorChange = viewModel::setDynamicColor
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
         if (onCreateUser != null) {
             OutlinedButton(
                 onClick = onCreateUser,

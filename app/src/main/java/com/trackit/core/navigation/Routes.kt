@@ -2,6 +2,7 @@ package com.trackit.core.navigation
 
 object Routes {
     const val SPLASH = "splash"
+    const val APP_ONBOARDING = "onboarding/app"
     const val LOGIN = "login"
     const val DRIVER_SETUP_TRUCK = "driver/setup_truck"
     const val DRIVER = "driver"

@@ -19,6 +19,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.trackit.core.onboarding.CoachMarkKeys
+import com.trackit.core.onboarding.coachMarkTarget
 
 @Composable
 fun WarehouseHomeScreen(
@@ -48,6 +50,7 @@ fun WarehouseHomeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(96.dp)
+                .coachMarkTarget(CoachMarkKeys.WAREHOUSE_LOAD_TRUCK)
         ) {
             Icon(Icons.Default.LocalShipping, contentDescription = null)
             Spacer(modifier = Modifier.width(12.dp))
@@ -61,6 +64,7 @@ fun WarehouseHomeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(96.dp)
+                .coachMarkTarget(CoachMarkKeys.WAREHOUSE_INTAKE)
         ) {
             Icon(Icons.Default.Inventory2, contentDescription = null)
             Spacer(modifier = Modifier.width(12.dp))

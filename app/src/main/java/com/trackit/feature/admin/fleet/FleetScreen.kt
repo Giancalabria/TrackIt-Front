@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.trackit.core.onboarding.CoachMarkKeys
+import com.trackit.core.onboarding.coachMarkTarget
 import com.trackit.core.ui.components.TruckCard
 
 @Composable
@@ -60,7 +62,9 @@ fun FleetScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(
                         onClick = { viewModel.runDailyCronJob() },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .coachMarkTarget(CoachMarkKeys.ADMIN_GENERATE_ROUTES),
                         enabled = !uiState.isCronJobRunning,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -96,7 +100,9 @@ fun FleetScreen(
                         Text(
                             text = "Camiones activos",
                             style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(bottom = 4.dp)
+                            modifier = Modifier
+                                .padding(bottom = 4.dp)
+                                .coachMarkTarget(CoachMarkKeys.ADMIN_FLEET_LIST)
                         )
                     }
                     items(uiState.trucks, key = { it.id }) { truck ->

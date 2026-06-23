@@ -123,6 +123,9 @@ dependencies {
     // WorkManager (background sync to Supabase)
     implementation(libs.androidx.work.runtime.ktx)
 
+    // DataStore (onboarding completion flags)
+    implementation(libs.androidx.datastore.preferences)
+
     // Maps and Networking
     implementation(libs.osmdroid)
     implementation(libs.retrofit)
@@ -150,4 +153,9 @@ dependencies {
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.androidx.arch.core.testing)
 }

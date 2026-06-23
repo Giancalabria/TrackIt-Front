@@ -3,6 +3,7 @@ package com.trackit
 import android.app.Application
 import com.trackit.data.repository.SupabaseLocator
 import com.trackit.data.sync.SyncScheduler
+import com.trackit.core.ui.theme.ThemeLocator
 import io.github.jan.supabase.annotations.SupabaseInternal
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.functions.Functions
@@ -36,6 +37,7 @@ class TrackItApp : Application() {
         }
 
         SupabaseLocator.init(this, supabase)
+        ThemeLocator.init(this)
 
         // Trigger a sync whenever connectivity returns, and once on startup,
         // so Room (the single source of truth) catches up with Supabase.
