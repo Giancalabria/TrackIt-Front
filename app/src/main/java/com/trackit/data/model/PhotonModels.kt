@@ -20,13 +20,19 @@ data class PhotonProperties(
     val country: String?
 ) {
     fun getDisplayName(): String {
-        val streetWithNumber = when {
-            street.isNullOrBlank() -> null
-            houseNumber.isNullOrBlank() -> street
-            else -> "$street $houseNumber"
-        }
+        val streetWithNumber = getStreetWithNumber()
         return listOfNotNull(name, streetWithNumber, city).joinToString(", ")
     }
+
+    /** Street and house number when available, for display after GPS reverse geocoding. */
+    fun getStreetWithNumber(): String? = when {
+        street.isNullOrBlank() -> null
+        houseNumber.isNullOrBlank() -> street
+        else -> "$street $houseNumber"
+    }
+
+    fun getReadableAddress(): String =
+        getStreetWithNumber() ?: name?.takeIf { it.isNotBlank() } ?: getDisplayName()
 }
 
 data class Geometry(

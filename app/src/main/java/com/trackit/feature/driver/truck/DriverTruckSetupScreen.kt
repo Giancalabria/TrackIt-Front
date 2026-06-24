@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +46,7 @@ fun DriverTruckSetupScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -59,7 +62,7 @@ fun DriverTruckSetupScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Hola, ${uiState.driverName}. Completá los datos de tu vehículo para aparecer en la flota.",
+                text = "Hola, ${uiState.driverName}. Completá los datos de tu vehículo y tu punto de salida para aparecer en la flota.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -73,6 +76,19 @@ fun DriverTruckSetupScreen(
                 placeholder = { Text("Ej: AB123CD") },
                 singleLine = true,
                 enabled = !uiState.isSaving
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            RouteStartLocationFields(
+                label = uiState.routeStartLabel,
+                onLabelChange = viewModel::onRouteStartLabelChange,
+                selectedLat = uiState.routeStartLat,
+                selectedLon = uiState.routeStartLon,
+                onLocationSelected = viewModel::onRouteStartSelected,
+                enabled = !uiState.isSaving,
+                locationError = uiState.locationError,
+                onLocationErrorChange = viewModel::onLocationErrorChange
             )
 
             uiState.errorMessage?.let { message ->
@@ -97,7 +113,7 @@ fun DriverTruckSetupScreen(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
-                    Text("Guardar camión")
+                    Text("Guardar y continuar")
                 }
             }
         }

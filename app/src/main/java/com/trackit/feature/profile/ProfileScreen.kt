@@ -70,6 +70,18 @@ fun ProfileScreen(
             onDynamicColorChange = viewModel::setDynamicColor
         )
 
+        if (user?.role == UserRole.DRIVER) {
+            Spacer(modifier = Modifier.height(32.dp))
+            DriverRouteStartSection(
+                truck = uiState.driverTruck,
+                isSaving = uiState.isSavingRouteStart,
+                successMessage = uiState.routeStartMessage,
+                errorMessage = uiState.routeStartError,
+                onSaveLocation = viewModel::saveRouteStartLocation,
+                onClearMessages = viewModel::clearRouteStartMessages
+            )
+        }
+
         Spacer(modifier = Modifier.height(32.dp))
 
         if (onCreateUser != null) {

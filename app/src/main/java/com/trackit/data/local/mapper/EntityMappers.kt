@@ -61,7 +61,11 @@ fun TruckEntity.toDomain(): Truck = Truck(
     plate = plate,
     lastLat = lastLat,
     lastLon = lastLon,
-    lastLocationAt = lastLocationAtMillis?.let { Instant.ofEpochMilli(it) }
+    lastLocationAt = lastLocationAtMillis?.let { Instant.ofEpochMilli(it) },
+    routeStartLat = routeStartLat,
+    routeStartLon = routeStartLon,
+    routeStartLabel = routeStartLabel,
+    routeStartUpdatedAt = routeStartUpdatedAtMillis?.let { Instant.ofEpochMilli(it) }
 )
 
 fun Truck.toEntity(
@@ -75,6 +79,10 @@ fun Truck.toEntity(
     lastLat = lastLat,
     lastLon = lastLon,
     lastLocationAtMillis = lastLocationAt?.toEpochMilli(),
+    routeStartLat = routeStartLat,
+    routeStartLon = routeStartLon,
+    routeStartLabel = routeStartLabel,
+    routeStartUpdatedAtMillis = routeStartUpdatedAt?.toEpochMilli(),
     updatedAtMillis = updatedAtMillis,
     pendingSync = pendingSync
 )

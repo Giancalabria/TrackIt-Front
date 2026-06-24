@@ -15,6 +15,13 @@ interface PhotonApi {
         @Query("lat") lat: Double? = null,
         @Query("lon") lon: Double? = null
     ): PhotonResponse
+
+    @GET("https://photon.komoot.io/reverse")
+    suspend fun reverseGeocode(
+        @Query("lat") lat: Double,
+        @Query("lon") lon: Double,
+        @Query("limit") limit: Int = 1
+    ): PhotonResponse
 }
 
 interface OpenRouteServiceApi {

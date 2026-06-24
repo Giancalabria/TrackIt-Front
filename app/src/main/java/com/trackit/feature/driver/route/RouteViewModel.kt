@@ -7,7 +7,7 @@ import com.trackit.data.model.PackageStatus
 import com.trackit.data.repository.IAuthRepository
 import com.trackit.data.repository.IPackageRepository
 import com.trackit.data.repository.SupabaseLocator
-import com.trackit.feature.driver.detail.matchesCode
+import com.trackit.data.model.matchesCode
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 

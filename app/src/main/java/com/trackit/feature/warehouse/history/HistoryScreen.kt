@@ -3,21 +3,20 @@ package com.trackit.feature.warehouse.history
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.trackit.core.ui.components.EmptyState
 import com.trackit.core.ui.components.HistoryPackageCard
+import com.trackit.core.ui.filters.PackageFilterBar
+import com.trackit.core.ui.filters.PackageFilterSheet
+import com.trackit.core.ui.filters.PackageFilterSheetConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,49 +46,13 @@ fun HistoryScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { viewModel.onSearchQueryChange(it) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 16.dp),
-                placeholder = { Text("Buscar por cliente...") },
-                leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = "Buscar")
-                },
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium
+            PackageFilterBar(
+                searchQuery = searchQuery,
+                onSearchQueryChange = viewModel::onSearchQueryChange,
+                appliedFilters = filterUiState.applied,
+                onFilterClick = viewModel::openFilterSheet,
+                modifier = Modifier.padding(top = 8.dp)
             )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = viewModel::openFilterSheet,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.FilterList, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Filtros")
-                    if (filterUiState.applied.isActive) {
-                        Spacer(Modifier.width(8.dp))
-                        Badge { Text("•") }
-                    }
-                }
-            }
-
-            if (filterUiState.applied.isActive) {
-                Text(
-                    text = "Filtros activos: ${filterUiState.applied.activeSummary()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-            }
 
             if (packages.isEmpty()) {
                 val message = when {
@@ -120,7 +83,8 @@ fun HistoryScreen(
     }
 
     if (filterUiState.showSheet) {
-        HistoryFilterSheet(
+        PackageFilterSheet(
+            config = PackageFilterSheetConfig.history(),
             draft = filterUiState.draft,
             onToggleStatus = viewModel::toggleDraftStatus,
             onDateFromSelected = viewModel::setDraftDateFrom,

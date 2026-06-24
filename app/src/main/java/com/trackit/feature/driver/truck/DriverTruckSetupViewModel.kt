@@ -2,9 +2,9 @@ package com.trackit.feature.driver.truck
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trackit.data.model.hasRouteStart
 import com.trackit.data.repository.IAuthRepository
 import com.trackit.data.repository.IFleetRepository
-import com.trackit.data.repository.SupabaseAuthRepository
 import com.trackit.data.repository.SupabaseLocator
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
@@ -17,6 +17,10 @@ import kotlinx.coroutines.launch
 data class DriverTruckSetupUiState(
     val driverName: String = "",
     val plate: String = "",
+    val routeStartLabel: String = "",
+    val routeStartLat: Double? = null,
+    val routeStartLon: Double? = null,
+    val locationError: String? = null,
     val isCheckingExisting: Boolean = true,
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
@@ -40,10 +44,36 @@ class DriverTruckSetupViewModel(
         _uiState.update { it.copy(plate = value, errorMessage = null) }
     }
 
+    fun onRouteStartLabelChange(value: String) {
+        _uiState.update { it.copy(routeStartLabel = value, errorMessage = null) }
+    }
+
+    fun onRouteStartSelected(lat: Double, lon: Double) {
+        _uiState.update {
+            it.copy(
+                routeStartLat = lat,
+                routeStartLon = lon,
+                locationError = null,
+                errorMessage = null
+            )
+        }
+    }
+
+    fun onLocationErrorChange(message: String?) {
+        _uiState.update { it.copy(locationError = message) }
+    }
+
     fun saveTruck() {
-        val plate = _uiState.value.plate.trim()
+        val state = _uiState.value
+        val plate = state.plate.trim()
         if (plate.isBlank()) {
             _uiState.update { it.copy(errorMessage = "Ingresá la patente del camión.") }
+            return
+        }
+        if (state.routeStartLat == null || state.routeStartLon == null) {
+            _uiState.update {
+                it.copy(errorMessage = "Buscá una dirección o usá tu ubicación actual antes de continuar.")
+            }
             return
         }
 
@@ -61,7 +91,10 @@ class DriverTruckSetupViewModel(
             val truck = fleetRepository.createTruck(
                 driverId = authedUser.id,
                 driverName = driverName,
-                plate = plate
+                plate = plate,
+                routeStartLat = state.routeStartLat,
+                routeStartLon = state.routeStartLon,
+                routeStartLabel = state.routeStartLabel.ifBlank { null }
             )
 
             if (truck == null) {
@@ -97,12 +130,17 @@ class DriverTruckSetupViewModel(
 
                 val driverName = resolveDriverName()
                 val existing = fleetRepository.getTruckForDriver(authedUser.id)
+                val isComplete = existing?.hasRouteStart() == true
 
                 _uiState.update {
                     it.copy(
                         driverName = driverName,
+                        plate = if (isComplete) it.plate else existing?.plate.orEmpty(),
+                        routeStartLabel = if (isComplete) it.routeStartLabel else existing?.routeStartLabel.orEmpty(),
+                        routeStartLat = if (isComplete) it.routeStartLat else existing?.routeStartLat,
+                        routeStartLon = if (isComplete) it.routeStartLon else existing?.routeStartLon,
                         isCheckingExisting = false,
-                        setupComplete = existing != null
+                        setupComplete = isComplete
                     )
                 }
             } catch (e: Exception) {

@@ -1,6 +1,5 @@
 package com.trackit.feature.warehouse.intake
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.trackit.core.ui.components.AddressSearchField
 import com.trackit.core.ui.components.BarcodeScannerSheet
 import com.trackit.data.model.PackageSize
 
@@ -66,40 +66,12 @@ fun IntakeScreen(
             )
 
             Column(modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = uiState.address,
-                    onValueChange = viewModel::onAddressChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Dirección de destino") },
-                    singleLine = true,
-                    trailingIcon = {
-                        if (uiState.isSearchingAddress) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        }
-                    }
+                AddressSearchField(
+                    query = uiState.address,
+                    onQueryChange = viewModel::onAddressChange,
+                    onPlaceSelected = viewModel::onAddressSelected,
+                    label = "Dirección de destino"
                 )
-
-                if (uiState.addressSearchResults.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                    ) {
-                        uiState.addressSearchResults.forEach { result ->
-                            ListItem(
-                                headlineContent = { Text(result.properties.getDisplayName()) },
-                                supportingContent = { Text(result.properties.city ?: "") },
-                                modifier = Modifier.clickable {
-                                    viewModel.onAddressSelected(result)
-                                }
-                            )
-                        }
-                    }
-                }
             }
 
             ExposedDropdownMenuBox(

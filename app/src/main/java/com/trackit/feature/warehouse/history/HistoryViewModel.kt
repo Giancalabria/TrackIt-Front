@@ -2,6 +2,8 @@ package com.trackit.feature.warehouse.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trackit.core.ui.filters.PackageFilterUiState
+import com.trackit.core.ui.filters.filterBySearchAndFilters
 import com.trackit.data.model.Package
 import com.trackit.data.model.PackageSize
 import com.trackit.data.model.PackageStatus
@@ -17,13 +19,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
-import java.time.LocalDate
-
-data class HistoryFilterUiState(
-    val showSheet: Boolean = false,
-    val draft: HistoryFilters = HistoryFilters(),
-    val applied: HistoryFilters = HistoryFilters()
-)
 
 class HistoryViewModel(
     private val packageRepository: IPackageRepository = SupabaseLocator.packageRepository
@@ -31,8 +26,8 @@ class HistoryViewModel(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
 
-    private val _filterUiState = MutableStateFlow(HistoryFilterUiState())
-    val filterUiState: StateFlow<HistoryFilterUiState> = _filterUiState.asStateFlow()
+    private val _filterUiState = MutableStateFlow(PackageFilterUiState())
+    val filterUiState: StateFlow<PackageFilterUiState> = _filterUiState.asStateFlow()
 
     private val _editForm = MutableStateFlow<PackageEditForm?>(null)
     val editForm: StateFlow<PackageEditForm?> = _editForm.asStateFlow()
@@ -50,8 +45,7 @@ class HistoryViewModel(
     ) { allPackages, query, filters ->
         allPackages
             .filter { it.registeredByWarehouse }
-            .filter { it.clientName.contains(query, ignoreCase = true) }
-            .filter { filters.applied.matches(it) }
+            .filterBySearchAndFilters(query, filters.applied)
             .sortedWith(
                 compareBy<Package> { pkg ->
                     when (pkg.status) {
@@ -65,7 +59,7 @@ class HistoryViewModel(
             )
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
+        started = SharingStarted.Eagerly,
         initialValue = emptyList()
     )
 
@@ -95,11 +89,11 @@ class HistoryViewModel(
         }
     }
 
-    fun setDraftDateFrom(date: LocalDate?) {
+    fun setDraftDateFrom(date: java.time.LocalDate?) {
         _filterUiState.update { it.copy(draft = it.draft.copy(dateFrom = date)) }
     }
 
-    fun setDraftDateTo(date: LocalDate?) {
+    fun setDraftDateTo(date: java.time.LocalDate?) {
         _filterUiState.update { it.copy(draft = it.draft.copy(dateTo = date)) }
     }
 
@@ -113,9 +107,7 @@ class HistoryViewModel(
     }
 
     fun clearFilters() {
-        _filterUiState.update {
-            HistoryFilterUiState(showSheet = false)
-        }
+        _filterUiState.value = PackageFilterUiState(showSheet = false)
     }
 
     fun startEditing(pkg: Package) {

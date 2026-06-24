@@ -48,7 +48,7 @@ object RoleCoachMarkSteps {
         CoachMarkStep(
             targetKey = CoachMarkKeys.WAREHOUSE_LOAD_TRUCK,
             title = "Cargar camión",
-            message = "Seleccioná paquetes en depósito y marcá cuáles van al camión del chofer.",
+            message = "Elegí el camión y escaneá los paquetes asignados a ese chofer.",
             navigateToRoute = Routes.WAREHOUSE_HOME
         ),
         CoachMarkStep(

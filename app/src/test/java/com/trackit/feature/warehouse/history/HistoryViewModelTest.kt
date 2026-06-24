@@ -4,6 +4,7 @@ import com.trackit.data.model.PackageStatus
 import com.trackit.fakes.FakePackageRepository
 import com.trackit.testutil.MainDispatcherRule
 import com.trackit.testutil.samplePackage
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -107,6 +108,7 @@ class HistoryViewModelTest {
         viewModel.toggleDraftStatus(PackageStatus.ASIGNADO)
         viewModel.toggleDraftStatus(PackageStatus.CARGADO)
         viewModel.applyFilters()
+        advanceUntilIdle()
 
         val ids = viewModel.filteredPackages.value.map { it.id }.toSet()
         assertEquals(setOf("a", "b"), ids)
@@ -119,10 +121,12 @@ class HistoryViewModelTest {
         val viewModel = HistoryViewModel(FakePackageRepository(listOf(assigned, depot)))
 
         viewModel.toggleDraftStatus(PackageStatus.ASIGNADO)
+        advanceUntilIdle()
 
         assertEquals(2, viewModel.filteredPackages.value.size)
 
         viewModel.applyFilters()
+        advanceUntilIdle()
 
         assertEquals(1, viewModel.filteredPackages.value.size)
         assertEquals("a", viewModel.filteredPackages.value.first().id)

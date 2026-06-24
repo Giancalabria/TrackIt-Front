@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackit.data.model.Package
 import com.trackit.data.model.PackageStatus
+import com.trackit.data.model.matchesCode
 import com.trackit.data.repository.IPackageRepository
 import com.trackit.data.repository.SupabaseLocator
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -96,15 +97,4 @@ class PackageDetailViewModel(
             }
         }
     }
-}
-
-/**
- * A scanned/typed code matches a package when it equals its barcode (preferred) or its id.
- * If the package has no barcode, the id is the expected value.
- */
-fun Package.matchesCode(code: String): Boolean {
-    val input = code.trim()
-    if (input.isBlank()) return false
-    val expected = barcode.ifBlank { id }
-    return input.equals(expected, ignoreCase = true) || input.equals(id, ignoreCase = true)
 }

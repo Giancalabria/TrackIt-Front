@@ -2,15 +2,14 @@ package com.trackit.feature.warehouse.intake
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.trackit.core.AppConfig
 import com.trackit.data.model.PackageSize
 import com.trackit.data.model.PhotonFeature
-import com.trackit.data.repository.IMapRepository
 import com.trackit.data.repository.IPackageRepository
-import com.trackit.data.repository.MapRepository
 import com.trackit.data.repository.SupabaseLocator
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -19,8 +18,6 @@ data class IntakeUiState(
     val address: String = "",
     val destinationLat: Double? = null,
     val destinationLon: Double? = null,
-    val addressSearchResults: List<PhotonFeature> = emptyList(),
-    val isSearchingAddress: Boolean = false,
     val size: PackageSize = PackageSize.MEDIUM,
     val isFragile: Boolean = false,
     val scheduledDate: LocalDate = LocalDate.now().plusDays(1),
@@ -32,74 +29,29 @@ data class IntakeUiState(
     val isSubmitting: Boolean = false
 )
 
-@OptIn(FlowPreview::class)
 class IntakeViewModel(
-    private val packageRepository: IPackageRepository = SupabaseLocator.packageRepository,
-    private val mapRepository: IMapRepository = MapRepository.getInstance()
+    private val packageRepository: IPackageRepository = SupabaseLocator.packageRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(IntakeUiState())
     val uiState: StateFlow<IntakeUiState> = _uiState.asStateFlow()
-
-    private val _addressQuery = MutableStateFlow("")
-
-    init {
-        viewModelScope.launch {
-            _addressQuery
-                .debounce(500L)
-                .filter { it.isNotBlank() && it.length > 3 }
-                .distinctUntilChanged()
-                .collect { query ->
-                    performAddressSearch(query)
-                }
-        }
-    }
 
     fun onClientNameChange(value: String) {
         _uiState.update { it.copy(clientName = value, errorMessage = null) }
     }
 
     fun onAddressChange(value: String) {
-        _addressQuery.value = value
         _uiState.update { it.copy(address = value, errorMessage = null) }
-        if (value.isBlank()) {
-            _uiState.update { it.copy(addressSearchResults = emptyList()) }
-        }
-    }
-
-    private suspend fun performAddressSearch(query: String) {
-        _uiState.update { it.copy(isSearchingAddress = true, errorMessage = null) }
-        try {
-            val response = mapRepository.searchAddress(
-                query = query,
-                lat = AppConfig.DEFAULT_GEOCODER_LAT,
-                lon = AppConfig.DEFAULT_GEOCODER_LON
-            )
-            _uiState.update {
-                it.copy(addressSearchResults = response.features, isSearchingAddress = false)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            _uiState.update {
-                it.copy(
-                    isSearchingAddress = false,
-                    errorMessage = "No se pudo buscar la dirección. Verificá tu conexión."
-                )
-            }
-        }
     }
 
     fun onAddressSelected(feature: PhotonFeature) {
-        val coords = feature.geometry.asPoint() // [lon, lat]
-        val fullAddress = feature.properties.getDisplayName()
+        val coords = feature.geometry.asPoint()
         _uiState.update {
             it.copy(
-                address = fullAddress,
+                address = feature.properties.getReadableAddress(),
                 destinationLat = coords.getOrNull(1),
-                destinationLon = coords.getOrNull(0),
-                addressSearchResults = emptyList()
+                destinationLon = coords.getOrNull(0)
             )
         }
-        _addressQuery.value = "" // Stop searching
     }
 
     fun onSizeSelected(size: PackageSize) {
@@ -158,7 +110,6 @@ class IntakeViewModel(
                             address = "",
                             destinationLat = null,
                             destinationLon = null,
-                            addressSearchResults = emptyList(),
                             barcode = "",
                             size = PackageSize.MEDIUM,
                             isFragile = false,

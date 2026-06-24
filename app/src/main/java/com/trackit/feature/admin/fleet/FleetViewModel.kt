@@ -68,8 +68,8 @@ class FleetViewModel(
                             "No se pudo optimizar: ${result.error}"
                         result.reason == "no_jobs" ->
                             "No hay paquetes en depósito para el ${result.targetDate}."
-                        result.reason == "no_vehicles" ->
-                            "No hay choferes con camión disponibles."
+                        result.reason == "no_vehicles" || result.error == "no_vehicles_with_route_start" ->
+                            "No hay choferes con camión y ubicación inicial configurada."
                         else ->
                             "Rutas generadas: ${result.assigned} asignados, ${result.unassigned} sin asignar."
                     }

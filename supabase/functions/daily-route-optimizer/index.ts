@@ -37,13 +37,6 @@ function requireEnv(name: string): string {
   return v;
 }
 
-function parseWarehouseStart(): [number, number] {
-  const lat = Number(Deno.env.get("WAREHOUSE_LAT") ?? "-34.6037");
-  const lon = Number(Deno.env.get("WAREHOUSE_LON") ?? "-58.3816");
-  // ORS expects [lon, lat]
-  return [lon, lat];
-}
-
 Deno.serve(async (req) => {
   try {
     if (req.method !== "POST") {
@@ -90,23 +83,27 @@ Deno.serve(async (req) => {
       return Response.json({ ok: true, targetDate, assigned: 0, reason: "no_jobs" });
     }
 
-    // 2) Fetch vehicles (drivers available) from trucks table
+    // 2) Fetch vehicles with a mandatory route start configured by each driver.
     const { data: trucks, error: trkErr } = await supabase
       .from("trucks")
-      .select("id,driver_id")
-      .not("driver_id", "is", null);
+      .select("id,driver_id,route_start_lat,route_start_lon")
+      .not("driver_id", "is", null)
+      .not("route_start_lat", "is", null)
+      .not("route_start_lon", "is", null);
     if (trkErr) throw trkErr;
 
-    const start = parseWarehouseStart();
     const vehicles = (trucks ?? []).map((t, idx) => ({
       vehicleId: idx + 1,
       driverId: t.driver_id as string,
-      start,
-      end: start,
+      start: [Number(t.route_start_lon), Number(t.route_start_lat)] as [number, number],
+      end: [Number(t.route_start_lon), Number(t.route_start_lat)] as [number, number],
     }));
 
     if (vehicles.length === 0) {
-      return Response.json({ ok: false, targetDate, error: "no_vehicles" }, { status: 400 });
+      return Response.json(
+        { ok: false, targetDate, error: "no_vehicles_with_route_start" },
+        { status: 400 },
+      );
     }
 
     // 3) Call ORS Optimization (VROOM)

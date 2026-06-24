@@ -25,15 +25,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.trackit.R
 import com.trackit.BuildConfig
+import com.trackit.core.location.readBestLastKnownLocation
 import com.trackit.core.ui.theme.LightBlue
-import com.trackit.core.ui.theme.TerracottaOrange
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -104,6 +107,14 @@ private fun createUserLocationIcon(
     return bitmap
 }
 
+private fun resolveMapLocation(
+    context: android.content.Context,
+    overlay: MyLocationNewOverlay?
+): GeoPoint? {
+    overlay?.myLocation?.let { return it }
+    return readBestLastKnownLocation(context)?.let { (lat, lon) -> GeoPoint(lat, lon) }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
@@ -132,6 +143,24 @@ fun MapScreen(
     }
 
     val mapView = remember { MapView(context) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var hasCenteredOnUser by remember { mutableStateOf(false) }
+
+    DisposableEffect(lifecycleOwner, mapView) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapView.onPause()
+        }
+    }
+
     val myLocationOverlay = remember(hasLocationPermission) {
         if (!hasLocationPermission) return@remember null
         MyLocationNewOverlay(GpsMyLocationProvider(context), mapView).apply {
@@ -142,7 +171,13 @@ fun MapScreen(
             setPersonIcon(person)
             setDirectionArrow(person, person)
             enableMyLocation()
-            enableFollowLocation()
+        }
+    }
+
+    LaunchedEffect(uiState.routePoints) {
+        if (uiState.routePoints.isNotEmpty()) {
+            val polyline = Polyline().apply { setPoints(uiState.routePoints) }
+            mapView.zoomToBoundingBox(polyline.bounds, true)
         }
     }
 
@@ -185,17 +220,23 @@ fun MapScreen(
             AndroidView(
                 factory = {
                     mapView.apply {
-                    setTileSource(TileSourceFactory.MAPNIK)
-                    setMultiTouchControls(true)
-                    controller.setZoom(13.0)
-
-                    myLocationOverlay?.let { overlays.add(it) }
+                        setTileSource(TileSourceFactory.MAPNIK)
+                        setMultiTouchControls(true)
+                        controller.setZoom(15.0)
+                        readBestLastKnownLocation(context)?.let { (lat, lon) ->
+                            controller.setCenter(GeoPoint(lat, lon))
+                        }
+                        myLocationOverlay?.let { overlays.add(it) }
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { mv ->
-                    myLocationOverlay?.myLocation?.let { loc ->
+                    resolveMapLocation(context, myLocationOverlay)?.let { loc ->
                         viewModel.updateUserLocation(loc.latitude, loc.longitude)
+                        if (!hasCenteredOnUser) {
+                            hasCenteredOnUser = true
+                            mv.controller.animateTo(loc)
+                        }
                     }
 
                     val overlaysToRemove = mv.overlays.filterIsInstance<Polyline>()
@@ -208,13 +249,11 @@ fun MapScreen(
                         val lat = pkg.destinationLat
                         val lon = pkg.destinationLon
                         if (lat != null && lon != null) {
-                                val marker = Marker(mv).apply {
+                            val marker = Marker(mv).apply {
                                 position = GeoPoint(lat, lon)
                                 title = pkg.clientName
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                icon = createCustomMarker(
-                                    context = context
-                                )
+                                icon = createCustomMarker(context = context)
                             }
                             mv.overlays.add(marker)
                         }
@@ -226,8 +265,6 @@ fun MapScreen(
                         polyline.outlinePaint.color = android.graphics.Color.BLUE
                         polyline.outlinePaint.strokeWidth = 10f
                         mv.overlays.add(polyline)
-
-                        mv.zoomToBoundingBox(polyline.bounds, true)
                     }
 
                     mv.invalidate()
@@ -244,11 +281,14 @@ fun MapScreen(
                 if (uiState.assignedPackages.isNotEmpty()) {
                     ExtendedFloatingActionButton(
                         onClick = {
-                            val loc = myLocationOverlay?.myLocation
-                            viewModel.buildAssignedRoute(
-                                loc?.latitude ?: -34.6037,
-                                loc?.longitude ?: -58.3816
-                            )
+                            val loc = resolveMapLocation(context, myLocationOverlay)
+                            if (loc == null) {
+                                viewModel.setLocationError(
+                                    "No pudimos obtener tu ubicación. Activá el GPS e intentá de nuevo."
+                                )
+                            } else {
+                                viewModel.buildAssignedRoute(loc.latitude, loc.longitude)
+                            }
                         },
                         containerColor = MaterialTheme.colorScheme.secondaryContainer
                     ) {
@@ -260,9 +300,11 @@ fun MapScreen(
 
                 FloatingActionButton(
                     onClick = {
-                        myLocationOverlay?.myLocation?.let {
-                            mapView.controller.animateTo(it)
-                        }
+                        resolveMapLocation(context, myLocationOverlay)?.let { loc ->
+                            mapView.controller.animateTo(loc)
+                        } ?: viewModel.setLocationError(
+                            "No pudimos obtener tu ubicación. Activá el GPS e intentá de nuevo."
+                        )
                     },
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 ) {
@@ -316,12 +358,18 @@ fun MapScreen(
                             ListItem(
                                 headlineContent = { Text(result.properties.getDisplayName()) },
                                 modifier = Modifier.clickable {
-                                    val currentLoc = myLocationOverlay?.myLocation
-                                    viewModel.selectDestination(
-                                        result, 
-                                        currentLoc?.latitude ?: -34.6037,
-                                        currentLoc?.longitude ?: -58.3816
-                                    )
+                                    val currentLoc = resolveMapLocation(context, myLocationOverlay)
+                                    if (currentLoc == null) {
+                                        viewModel.setLocationError(
+                                            "No pudimos obtener tu ubicación. Activá el GPS e intentá de nuevo."
+                                        )
+                                    } else {
+                                        viewModel.selectDestination(
+                                            result,
+                                            currentLoc.latitude,
+                                            currentLoc.longitude
+                                        )
+                                    }
                                 }
                             )
                         }

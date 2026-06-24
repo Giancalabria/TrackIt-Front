@@ -2,9 +2,16 @@ package com.trackit.feature.warehouse.loadtruck
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trackit.core.ui.filters.PackageFilterUiState
+import com.trackit.core.ui.filters.PackageFilters
+import com.trackit.core.ui.filters.filterBySearchAndFilters
+import com.trackit.core.ui.filters.loadTruckVisibleStatuses
 import com.trackit.data.model.Package
 import com.trackit.data.model.PackageStatus
 import com.trackit.data.model.Truck
+import com.trackit.data.model.canLoadOntoTruck
+import com.trackit.data.model.isAlreadyLoadedOrBeyond
+import com.trackit.data.model.matchesCode
 import com.trackit.data.repository.IFleetRepository
 import com.trackit.data.repository.IPackageRepository
 import com.trackit.data.repository.SupabaseLocator
@@ -16,18 +23,33 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.ZoneId
+
+private val ARGENTINA_ZONE: ZoneId = ZoneId.of("America/Argentina/Buenos_Aires")
 
 enum class LoadTruckStep {
-    SELECT_PACKAGES,
-    SELECT_TRUCK
+    SELECT_TRUCK,
+    LOADING
+}
+
+data class TruckLoadInfo(
+    val truck: Truck,
+    val pendingCount: Int,
+    val loadedCount: Int
+) {
+    val totalCount: Int get() = pendingCount + loadedCount
 }
 
 data class LoadTruckUiState(
-    val packages: List<Package> = emptyList(),
-    val trucks: List<Truck> = emptyList(),
-    val selectedPackageIds: Set<String> = emptySet(),
+    val step: LoadTruckStep = LoadTruckStep.SELECT_TRUCK,
+    val trucks: List<TruckLoadInfo> = emptyList(),
+    val selectedTruck: Truck? = null,
+    val pendingPackages: List<Package> = emptyList(),
+    val loadedPackages: List<Package> = emptyList(),
     val searchQuery: String = "",
-    val step: LoadTruckStep = LoadTruckStep.SELECT_PACKAGES,
+    val filterUiState: PackageFilterUiState = PackageFilterUiState(),
+    val isScannerOpen: Boolean = false,
     val successMessage: String? = null,
     val errorMessage: String? = null,
     val isSaving: Boolean = false
@@ -41,100 +63,221 @@ class LoadTruckViewModel(
     val uiState: StateFlow<LoadTruckUiState> = _uiState.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
+    private val _step = MutableStateFlow(LoadTruckStep.SELECT_TRUCK)
+    private val _selectedTruck = MutableStateFlow<Truck?>(null)
+    private val _filterUiState = MutableStateFlow(PackageFilterUiState())
+    private var allPackages: List<Package> = emptyList()
 
     init {
         combine(
-            packageRepository.packages,
-            fleetRepository.trucks,
-            _searchQuery
-        ) { allPackages, trucks, query ->
-            Triple(allPackages, trucks, query)
-        }
-            .onEach { (allPackages, trucks, query) ->
-                _uiState.update { state ->
-                    val warehousePackages = allPackages
-                        .filter { packageItem ->
-                            (packageItem.status == PackageStatus.EN_DEPOSITO ||
-                                packageItem.status == PackageStatus.ASIGNADO) &&
-                                packageItem.clientName.contains(query, ignoreCase = true)
-                        }
-                        .sortedBy { packageItem -> packageItem.eta }
-                    val availablePackageIds = warehousePackages
-                        .map { packageItem -> packageItem.id }
-                        .toSet()
+            combine(
+                packageRepository.packages,
+                fleetRepository.trucks,
+                _searchQuery
+            ) { packages, trucks, query ->
+                Triple(packages, trucks, query)
+            },
+            combine(_step, _selectedTruck, _filterUiState) { step, selectedTruck, filterUiState ->
+                Triple(step, selectedTruck, filterUiState)
+            }
+        ) { (packages, trucks, query), (step, selectedTruck, filterUiState) ->
+            allPackages = packages
+            val today = LocalDate.now(ARGENTINA_ZONE)
 
-                    state.copy(
-                        packages = warehousePackages,
-                        trucks = trucks,
-                        searchQuery = query,
-                        selectedPackageIds = state.selectedPackageIds.intersect(availablePackageIds)
+            val truckInfos = trucks.map { truck ->
+                val driverPackages = packages.filter {
+                    it.assignedDriverId == truck.driverId &&
+                        it.scheduledDate == today &&
+                        it.status in loadTruckVisibleStatuses
+                }
+                TruckLoadInfo(
+                    truck = truck,
+                    pendingCount = driverPackages.count { it.status == PackageStatus.ASIGNADO },
+                    loadedCount = driverPackages.count {
+                        it.status == PackageStatus.CARGADO || it.status == PackageStatus.EN_CAMINO
+                    }
+                )
+            }.sortedByDescending { it.pendingCount }
+
+            val (pending, loaded) = if (selectedTruck != null && step == LoadTruckStep.LOADING) {
+                buildFilteredLists(
+                    packages = packages,
+                    truck = selectedTruck,
+                    today = today,
+                    query = query,
+                    filters = filterUiState.applied
+                )
+            } else {
+                emptyList<Package>() to emptyList()
+            }
+
+            DataSnapshot(
+                trucks = truckInfos,
+                step = step,
+                selectedTruck = selectedTruck,
+                pendingPackages = pending,
+                loadedPackages = loaded,
+                searchQuery = query,
+                filterUiState = filterUiState
+            )
+        }
+            .onEach { snapshot ->
+                _uiState.update { current ->
+                    current.copy(
+                        trucks = snapshot.trucks,
+                        step = snapshot.step,
+                        selectedTruck = snapshot.selectedTruck,
+                        pendingPackages = snapshot.pendingPackages,
+                        loadedPackages = snapshot.loadedPackages,
+                        searchQuery = snapshot.searchQuery,
+                        filterUiState = snapshot.filterUiState
                     )
                 }
             }
             .launchIn(viewModelScope)
     }
 
+    private data class DataSnapshot(
+        val trucks: List<TruckLoadInfo>,
+        val step: LoadTruckStep,
+        val selectedTruck: Truck?,
+        val pendingPackages: List<Package>,
+        val loadedPackages: List<Package>,
+        val searchQuery: String,
+        val filterUiState: PackageFilterUiState
+    )
+
+    private fun buildFilteredLists(
+        packages: List<Package>,
+        truck: Truck,
+        today: LocalDate,
+        query: String,
+        filters: PackageFilters
+    ): Pair<List<Package>, List<Package>> {
+        val eligible = packages.filter {
+            it.assignedDriverId == truck.driverId &&
+                it.scheduledDate == today &&
+                it.status in loadTruckVisibleStatuses
+        }
+        val filtered = eligible.filterBySearchAndFilters(query, filters)
+        val pending = filtered
+            .filter { it.status == PackageStatus.ASIGNADO }
+            .sortedWith(compareBy<Package, Int?>(nullsLast()) { it.routeOrder }.thenBy { it.eta })
+        val loaded = filtered
+            .filter { it.status == PackageStatus.CARGADO || it.status == PackageStatus.EN_CAMINO }
+            .sortedWith(compareBy<Package, Int?>(nullsLast()) { it.routeOrder }.thenBy { it.eta })
+        return pending to loaded
+    }
+
+    fun selectTruck(truck: Truck) {
+        _searchQuery.value = ""
+        _filterUiState.value = PackageFilterUiState()
+        _selectedTruck.value = truck
+        _step.value = LoadTruckStep.LOADING
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    fun backToTruckSelection() {
+        _searchQuery.value = ""
+        _filterUiState.value = PackageFilterUiState()
+        _selectedTruck.value = null
+        _step.value = LoadTruckStep.SELECT_TRUCK
+        _uiState.update { it.copy(isScannerOpen = false, errorMessage = null) }
+    }
+
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
     }
 
-    fun togglePackage(packageId: String) {
-        _uiState.update { state ->
-            val selectedPackageIds = if (packageId in state.selectedPackageIds) {
-                state.selectedPackageIds - packageId
-            } else {
-                state.selectedPackageIds + packageId
-            }
-            state.copy(selectedPackageIds = selectedPackageIds)
+    fun openFilterSheet() {
+        _filterUiState.update {
+            it.copy(showSheet = true, draft = it.applied)
         }
     }
 
-    fun confirmPackages() {
-        if (_uiState.value.selectedPackageIds.isEmpty()) return
-        _uiState.update { it.copy(step = LoadTruckStep.SELECT_TRUCK, errorMessage = null) }
+    fun dismissFilterSheet() {
+        _filterUiState.update { it.copy(showSheet = false) }
     }
 
-    fun backToPackageSelection() {
-        _uiState.update { it.copy(step = LoadTruckStep.SELECT_PACKAGES) }
+    fun toggleDraftStatus(status: PackageStatus) {
+        _filterUiState.update { state ->
+            val nextStatuses = state.draft.statuses.toMutableSet()
+            if (status in nextStatuses) nextStatuses.remove(status) else nextStatuses.add(status)
+            state.copy(draft = state.draft.copy(statuses = nextStatuses))
+        }
     }
 
-    fun loadSelectedPackages(truck: Truck) {
-        val selectedIds = _uiState.value.selectedPackageIds
-        if (selectedIds.isEmpty()) return
+    fun applyFilters() {
+        _filterUiState.update {
+            it.copy(applied = it.draft, showSheet = false)
+        }
+    }
 
+    fun clearFilters() {
+        _filterUiState.value = PackageFilterUiState(showSheet = false)
+    }
+
+    fun openScanner() {
+        _uiState.update { it.copy(isScannerOpen = true, errorMessage = null) }
+    }
+
+    fun closeScanner() {
+        _uiState.update { it.copy(isScannerOpen = false) }
+    }
+
+    fun onBarcodeScanned(code: String) {
+        val truck = _selectedTruck.value ?: return
+        _uiState.update { it.copy(isScannerOpen = false) }
+
+        val pkg = allPackages.firstOrNull { it.matchesCode(code) }
+        when {
+            pkg == null -> {
+                _uiState.update { it.copy(errorMessage = "Código no reconocido.") }
+            }
+            pkg.status == PackageStatus.EN_DEPOSITO || pkg.assignedDriverId == null -> {
+                _uiState.update {
+                    it.copy(errorMessage = "Paquete sin asignar. Primero debe asignarse la ruta.")
+                }
+            }
+            pkg.assignedDriverId != truck.driverId -> {
+                val otherPlate = _uiState.value.trucks
+                    .firstOrNull { info -> info.truck.driverId == pkg.assignedDriverId }
+                    ?.truck?.plate
+                val detail = otherPlate?.let { plate -> " al camión $plate" }.orEmpty()
+                _uiState.update {
+                    it.copy(errorMessage = "Este paquete está asignado$detail.")
+                }
+            }
+            pkg.isAlreadyLoadedOrBeyond() -> {
+                _uiState.update { it.copy(errorMessage = "Este paquete ya fue cargado.") }
+            }
+            pkg.canLoadOntoTruck(truck) -> loadPackage(pkg)
+            else -> {
+                _uiState.update { it.copy(errorMessage = "No se puede cargar este paquete.") }
+            }
+        }
+    }
+
+    private fun loadPackage(pkg: Package) {
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, errorMessage = null) }
-
-            val selectedPackages = _uiState.value.packages.filter { packageItem ->
-                packageItem.id in selectedIds
-            }
-
-            var failedCount = 0
-            selectedPackages.forEach { packageItem ->
-                val result = packageRepository.updatePackage(
-                    packageItem.copy(
-                        status = PackageStatus.CARGADO,
-                        assignedDriverId = truck.driverId
-                    )
-                )
-                if (result.isFailure) failedCount++
-            }
-
-            if (failedCount > 0) {
+            val result = packageRepository.updatePackage(pkg.copy(status = PackageStatus.CARGADO))
+            if (result.isFailure) {
                 _uiState.update {
                     it.copy(
                         isSaving = false,
-                        errorMessage = "No se pudieron cargar $failedCount paquete(s). Reintentá."
+                        errorMessage = "No se pudo cargar el paquete. Reintentá."
                     )
                 }
             } else {
+                val pendingAfter = _uiState.value.pendingPackages.size - 1
+                val message = if (pendingAfter <= 0) {
+                    "¡Camión listo! Todos los paquetes fueron cargados."
+                } else {
+                    "${pkg.clientName} cargado correctamente."
+                }
                 _uiState.update {
-                    it.copy(
-                        selectedPackageIds = emptySet(),
-                        step = LoadTruckStep.SELECT_PACKAGES,
-                        successMessage = "${selectedPackages.size} paquete(s) cargado(s) en ${truck.plate}",
-                        isSaving = false
-                    )
+                    it.copy(isSaving = false, successMessage = message)
                 }
             }
         }
@@ -142,5 +285,9 @@ class LoadTruckViewModel(
 
     fun consumeSuccessMessage() {
         _uiState.update { it.copy(successMessage = null) }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(errorMessage = null) }
     }
 }

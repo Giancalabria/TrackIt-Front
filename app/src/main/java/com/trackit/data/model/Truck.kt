@@ -21,9 +21,21 @@ data class Truck(
     @Serializable(with = InstantSerializer::class)
     @SerialName("last_location_at")
     val lastLocationAt: Instant? = null,
+    @SerialName("route_start_lat")
+    val routeStartLat: Double? = null,
+    @SerialName("route_start_lon")
+    val routeStartLon: Double? = null,
+    @SerialName("route_start_label")
+    val routeStartLabel: String? = null,
+    @Serializable(with = InstantSerializer::class)
+    @SerialName("route_start_updated_at")
+    val routeStartUpdatedAt: Instant? = null,
     // Computed client-side from packages; never persisted in the `trucks` table.
     @Transient
     val deliveredCount: Int = 0,
     @Transient
     val totalCount: Int = 0
 )
+
+/** True when the driver completed onboarding with a mandatory route start point. */
+fun Truck.hasRouteStart(): Boolean = routeStartLat != null && routeStartLon != null

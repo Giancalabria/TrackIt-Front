@@ -56,6 +56,10 @@ class MapViewModel(
         _userLocation.value = lat to lon
     }
 
+    fun setLocationError(message: String) {
+        _uiState.update { it.copy(errorMessage = message) }
+    }
+
     /**
      * Draws a route from the driver's current location through all their pending stops,
      * in optimizer visit order (routeOrder). Skips delivered/failed packages.

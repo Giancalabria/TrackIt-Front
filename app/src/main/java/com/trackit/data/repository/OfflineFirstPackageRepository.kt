@@ -74,8 +74,8 @@ class OfflineFirstPackageRepository(
             )
             database.packageDao().upsert(updated.toEntity(pendingSync = true))
 
-            // On delivery, derive the truck's last known location from the delivered package
-            // (NOT realtime: it's just "where the truck last dropped something, and when").
+            // last_lat/last_lon: approximate truck position for the admin map only
+            // (derived from the last delivered package, not live GPS).
             if (status == PackageStatus.ENTREGADO) {
                 val driverId = current.assignedDriverId
                 val lat = current.destinationLat
@@ -101,7 +101,10 @@ class OfflineFirstPackageRepository(
             packageIds.forEach { id ->
                 val entity = database.packageDao().getById(id)
                 if (entity != null) {
-                    val domain = entity.toDomain().copy(assignedDriverId = driverId)
+                    val domain = entity.toDomain().copy(
+                        assignedDriverId = driverId,
+                        status = PackageStatus.ASIGNADO
+                    )
                     database.packageDao().upsert(domain.toEntity(pendingSync = true))
                 }
             }

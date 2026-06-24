@@ -12,6 +12,10 @@ data class TruckEntity(
     val lastLat: Double?,
     val lastLon: Double?,
     val lastLocationAtMillis: Long?,
+    val routeStartLat: Double?,
+    val routeStartLon: Double?,
+    val routeStartLabel: String?,
+    val routeStartUpdatedAtMillis: Long?,
     val updatedAtMillis: Long,
     val pendingSync: Boolean
 )

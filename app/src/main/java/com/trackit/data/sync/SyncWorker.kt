@@ -9,6 +9,7 @@ import com.trackit.data.local.mapper.toDomain
 import com.trackit.data.local.mapper.toEntity
 import com.trackit.data.model.Package
 import com.trackit.data.model.Truck
+import com.trackit.data.model.hasRouteStart
 import com.trackit.data.repository.SupabaseLocator
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Dispatchers
@@ -93,6 +94,7 @@ class SyncWorker(
 
         val stillPendingIds = database.truckDao().getPendingSync().map { it.id }.toSet()
         val toUpsert = remoteTrucks
+            .filter { it.hasRouteStart() }
             .filterNot { it.id in stillPendingIds }
             .map { it.toEntity(pendingSync = false) }
 
