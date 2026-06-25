@@ -30,7 +30,8 @@ private val ARGENTINA_ZONE: ZoneId = ZoneId.of("America/Argentina/Buenos_Aires")
 
 enum class LoadTruckStep {
     SELECT_TRUCK,
-    LOADING
+    LOADING,
+    PACKAGE_DETAIL
 }
 
 data class TruckLoadInfo(
@@ -45,6 +46,7 @@ data class LoadTruckUiState(
     val step: LoadTruckStep = LoadTruckStep.SELECT_TRUCK,
     val trucks: List<TruckLoadInfo> = emptyList(),
     val selectedTruck: Truck? = null,
+    val selectedPackage: Package? = null,
     val pendingPackages: List<Package> = emptyList(),
     val loadedPackages: List<Package> = emptyList(),
     val searchQuery: String = "",
@@ -179,12 +181,22 @@ class LoadTruckViewModel(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
+    fun selectPackage(pkg: Package) {
+        _step.value = LoadTruckStep.PACKAGE_DETAIL
+        _uiState.update { it.copy(selectedPackage = pkg, errorMessage = null) }
+    }
+
+    fun backToLoading() {
+        _step.value = LoadTruckStep.LOADING
+        _uiState.update { it.copy(selectedPackage = null, errorMessage = null) }
+    }
+
     fun backToTruckSelection() {
         _searchQuery.value = ""
         _filterUiState.value = PackageFilterUiState()
         _selectedTruck.value = null
         _step.value = LoadTruckStep.SELECT_TRUCK
-        _uiState.update { it.copy(isScannerOpen = false, errorMessage = null) }
+        _uiState.update { it.copy(isScannerOpen = false, errorMessage = null, selectedPackage = null) }
     }
 
     fun onSearchQueryChange(query: String) {
@@ -228,35 +240,13 @@ class LoadTruckViewModel(
     }
 
     fun onBarcodeScanned(code: String) {
-        val truck = _selectedTruck.value ?: return
+        val selectedPkg = _uiState.value.selectedPackage ?: return
         _uiState.update { it.copy(isScannerOpen = false) }
 
-        val pkg = allPackages.firstOrNull { it.matchesCode(code) }
-        when {
-            pkg == null -> {
-                _uiState.update { it.copy(errorMessage = "Código no reconocido.") }
-            }
-            pkg.assignedDriverId == null -> {
-                _uiState.update {
-                    it.copy(errorMessage = "Paquete sin asignar. El administrador debe asignarlo a un camión primero.")
-                }
-            }
-            pkg.assignedDriverId != truck.driverId -> {
-                val otherPlate = _uiState.value.trucks
-                    .firstOrNull { info -> info.truck.driverId == pkg.assignedDriverId }
-                    ?.truck?.plate
-                val detail = otherPlate?.let { plate -> " al camión $plate" }.orEmpty()
-                _uiState.update {
-                    it.copy(errorMessage = "Este paquete está asignado$detail.")
-                }
-            }
-            pkg.isAlreadyLoadedOrBeyond() -> {
-                _uiState.update { it.copy(errorMessage = "Este paquete ya fue cargado.") }
-            }
-            pkg.canLoadOntoTruck(truck) -> loadPackage(pkg)
-            else -> {
-                _uiState.update { it.copy(errorMessage = "No se puede cargar este paquete.") }
-            }
+        if (selectedPkg.matchesCode(code)) {
+            loadPackage(selectedPkg)
+        } else {
+            _uiState.update { it.copy(errorMessage = "El código escaneado no coincide con este paquete.") }
         }
     }
 
@@ -272,14 +262,13 @@ class LoadTruckViewModel(
                     )
                 }
             } else {
-                val pendingAfter = _uiState.value.pendingPackages.size - 1
-                val message = if (pendingAfter <= 0) {
-                    "¡Camión listo! Todos los paquetes fueron cargados."
-                } else {
-                    "${pkg.clientName} cargado correctamente."
-                }
                 _uiState.update {
-                    it.copy(isSaving = false, successMessage = message)
+                    it.copy(
+                        isSaving = false,
+                        successMessage = "${pkg.clientName} cargado correctamente.",
+                        step = LoadTruckStep.LOADING,
+                        selectedPackage = null
+                    )
                 }
             }
         }

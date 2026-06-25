@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Search
@@ -25,20 +26,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.trackit.R
 import com.trackit.BuildConfig
-import com.trackit.core.location.readBestLastKnownLocation
+import com.trackit.core.ui.components.BarcodeScannerSheet
 import com.trackit.core.ui.theme.LightBlue
+import com.trackit.data.model.Package
+import com.trackit.data.model.PackageStatus
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -107,14 +109,6 @@ private fun createUserLocationIcon(
     return bitmap
 }
 
-private fun resolveMapLocation(
-    context: android.content.Context,
-    overlay: MyLocationNewOverlay?
-): GeoPoint? {
-    overlay?.myLocation?.let { return it }
-    return readBestLastKnownLocation(context)?.let { (lat, lon) -> GeoPoint(lat, lon) }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
@@ -122,6 +116,16 @@ fun MapScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var scanningPackage by remember { mutableStateOf<Package?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.successMessage, uiState.errorMessage) {
+        val message = uiState.successMessage ?: uiState.errorMessage
+        if (message != null) {
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearMessages()
+        }
+    }
 
     var hasLocationPermission by remember {
         mutableStateOf(
@@ -143,24 +147,6 @@ fun MapScreen(
     }
 
     val mapView = remember { MapView(context) }
-    val lifecycleOwner = LocalLifecycleOwner.current
-    var hasCenteredOnUser by remember { mutableStateOf(false) }
-
-    DisposableEffect(lifecycleOwner, mapView) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            mapView.onPause()
-        }
-    }
-
     val myLocationOverlay = remember(hasLocationPermission) {
         if (!hasLocationPermission) return@remember null
         MyLocationNewOverlay(GpsMyLocationProvider(context), mapView).apply {
@@ -171,13 +157,7 @@ fun MapScreen(
             setPersonIcon(person)
             setDirectionArrow(person, person)
             enableMyLocation()
-        }
-    }
-
-    LaunchedEffect(uiState.routePoints) {
-        if (uiState.routePoints.isNotEmpty()) {
-            val polyline = Polyline().apply { setPoints(uiState.routePoints) }
-            mapView.zoomToBoundingBox(polyline.bounds, true)
+            enableFollowLocation()
         }
     }
 
@@ -220,23 +200,17 @@ fun MapScreen(
             AndroidView(
                 factory = {
                     mapView.apply {
-                        setTileSource(TileSourceFactory.MAPNIK)
-                        setMultiTouchControls(true)
-                        controller.setZoom(15.0)
-                        readBestLastKnownLocation(context)?.let { (lat, lon) ->
-                            controller.setCenter(GeoPoint(lat, lon))
-                        }
-                        myLocationOverlay?.let { overlays.add(it) }
+                    setTileSource(TileSourceFactory.MAPNIK)
+                    setMultiTouchControls(true)
+                    controller.setZoom(13.0)
+
+                    myLocationOverlay?.let { overlays.add(it) }
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { mv ->
-                    resolveMapLocation(context, myLocationOverlay)?.let { loc ->
+                    myLocationOverlay?.myLocation?.let { loc ->
                         viewModel.updateUserLocation(loc.latitude, loc.longitude)
-                        if (!hasCenteredOnUser) {
-                            hasCenteredOnUser = true
-                            mv.controller.animateTo(loc)
-                        }
                     }
 
                     val overlaysToRemove = mv.overlays.filterIsInstance<Polyline>()
@@ -245,26 +219,40 @@ fun MapScreen(
                     val markerOverlays = mv.overlays.filterIsInstance<Marker>()
                     mv.overlays.removeAll(markerOverlays)
 
-                    uiState.assignedPackages.forEach { pkg ->
-                        val lat = pkg.destinationLat
-                        val lon = pkg.destinationLon
-                        if (lat != null && lon != null) {
-                            val marker = Marker(mv).apply {
-                                position = GeoPoint(lat, lon)
-                                title = pkg.clientName
-                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                icon = createCustomMarker(context = context)
+                    // Only show markers for packages that are NOT delivered or failed
+                    uiState.assignedPackages
+                        .filter { it.status != PackageStatus.ENTREGADO && it.status != PackageStatus.FALLIDO }
+                        .forEach { pkg ->
+                            val lat = pkg.destinationLat
+                            val lon = pkg.destinationLon
+                            if (lat != null && lon != null) {
+                                val marker = Marker(mv).apply {
+                                    position = GeoPoint(lat, lon)
+                                    title = pkg.clientName
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                    icon = createCustomMarker(
+                                        context = context
+                                    )
+                                }
+                                mv.overlays.add(marker)
                             }
-                            mv.overlays.add(marker)
                         }
-                    }
 
-                    if (uiState.routePoints.isNotEmpty()) {
-                        val polyline = Polyline()
-                        polyline.setPoints(uiState.routePoints)
-                        polyline.outlinePaint.color = android.graphics.Color.BLUE
-                        polyline.outlinePaint.strokeWidth = 10f
-                        mv.overlays.add(polyline)
+                    if (uiState.routeSegments.isNotEmpty()) {
+                        val allPoints = mutableListOf<GeoPoint>()
+                        uiState.routeSegments.forEach { segment ->
+                            val polyline = Polyline()
+                            polyline.setPoints(segment)
+                            polyline.outlinePaint.color = android.graphics.Color.BLUE // Single color
+                            polyline.outlinePaint.strokeWidth = 10f
+                            mv.overlays.add(polyline)
+                            allPoints.addAll(segment)
+                        }
+
+                        if (allPoints.isNotEmpty()) {
+                            val boundingBox = BoundingBox.fromGeoPoints(allPoints)
+                            mv.zoomToBoundingBox(boundingBox, true)
+                        }
                     }
 
                     mv.invalidate()
@@ -281,30 +269,25 @@ fun MapScreen(
                 if (uiState.assignedPackages.isNotEmpty()) {
                     ExtendedFloatingActionButton(
                         onClick = {
-                            val loc = resolveMapLocation(context, myLocationOverlay)
-                            if (loc == null) {
-                                viewModel.setLocationError(
-                                    "No pudimos obtener tu ubicación. Activá el GPS e intentá de nuevo."
-                                )
-                            } else {
-                                viewModel.buildAssignedRoute(loc.latitude, loc.longitude)
-                            }
+                            val loc = myLocationOverlay?.myLocation
+                            viewModel.startTrip(
+                                loc?.latitude ?: -34.6037,
+                                loc?.longitude ?: -58.3816
+                            )
                         },
                         containerColor = MaterialTheme.colorScheme.secondaryContainer
                     ) {
                         Icon(Icons.Default.Route, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Trazar mi ruta")
+                        Text("Iniciar trayecto")
                     }
                 }
 
                 FloatingActionButton(
                     onClick = {
-                        resolveMapLocation(context, myLocationOverlay)?.let { loc ->
-                            mapView.controller.animateTo(loc)
-                        } ?: viewModel.setLocationError(
-                            "No pudimos obtener tu ubicación. Activá el GPS e intentá de nuevo."
-                        )
+                        myLocationOverlay?.myLocation?.let {
+                            mapView.controller.animateTo(it)
+                        }
                     },
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 ) {
@@ -337,15 +320,6 @@ fun MapScreen(
                 singleLine = true
             )
 
-            uiState.errorMessage?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-
             if (uiState.searchResults.isNotEmpty()) {
                 Card(
                     modifier = Modifier
@@ -358,18 +332,12 @@ fun MapScreen(
                             ListItem(
                                 headlineContent = { Text(result.properties.getDisplayName()) },
                                 modifier = Modifier.clickable {
-                                    val currentLoc = resolveMapLocation(context, myLocationOverlay)
-                                    if (currentLoc == null) {
-                                        viewModel.setLocationError(
-                                            "No pudimos obtener tu ubicación. Activá el GPS e intentá de nuevo."
-                                        )
-                                    } else {
-                                        viewModel.selectDestination(
-                                            result,
-                                            currentLoc.latitude,
-                                            currentLoc.longitude
-                                        )
-                                    }
+                                    val currentLoc = myLocationOverlay?.myLocation
+                                    viewModel.selectDestination(
+                                        result, 
+                                        currentLoc?.latitude ?: -34.6037,
+                                        currentLoc?.longitude ?: -58.3816
+                                    )
                                 }
                             )
                         }
@@ -386,6 +354,91 @@ fun MapScreen(
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
+            }
+        }
+
+        uiState.nextPackage?.let { pkg ->
+            NextDeliveryPanel(
+                pkg = pkg,
+                onDeliverClick = { scanningPackage = pkg },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 100.dp) // Below search bar
+                    .padding(horizontal = 16.dp)
+            )
+        }
+
+        scanningPackage?.let { pkg ->
+            BarcodeScannerSheet(
+                title = "Escanear para Entregar",
+                onCodeScanned = { code ->
+                    viewModel.deliverPackage(pkg.id, code)
+                    scanningPackage = null
+                },
+                onDismiss = { scanningPackage = null }
+            )
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp)
+        )
+    }
+}
+
+@Composable
+private fun NextDeliveryPanel(
+    pkg: Package,
+    onDeliverClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.LocalShipping,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Próxima Entrega",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
+                Text(
+                    text = pkg.clientName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Text(
+                    text = pkg.address,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = onDeliverClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+            ) {
+                Text("Entregar")
             }
         }
     }

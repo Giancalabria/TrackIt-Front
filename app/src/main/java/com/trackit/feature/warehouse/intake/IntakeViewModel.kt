@@ -93,6 +93,11 @@ class IntakeViewModel(
     private fun submitPackage() {
         val currentState = _uiState.value
 
+        if (currentState.destinationLat == null || currentState.destinationLon == null) {
+            _uiState.update { it.copy(errorMessage = "Debes seleccionar una dirección de la lista de sugerencias para obtener las coordenadas.") }
+            return
+        }
+
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
 

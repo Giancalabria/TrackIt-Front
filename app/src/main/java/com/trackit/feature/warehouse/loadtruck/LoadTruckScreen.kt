@@ -23,12 +23,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -112,10 +113,18 @@ fun LoadTruckScreen(
                                     contentDescription = "Cambiar camión"
                                 )
                             }
-                        },
-                        actions = {
-                            TextButton(onClick = viewModel::backToTruckSelection) {
-                                Text("Cambiar camión")
+                        }
+                    )
+                }
+                LoadTruckStep.PACKAGE_DETAIL -> {
+                    TopAppBar(
+                        title = { Text("Detalle de paquete") },
+                        navigationIcon = {
+                            IconButton(onClick = viewModel::backToLoading) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Volver"
+                                )
                             }
                         }
                     )
@@ -124,13 +133,13 @@ fun LoadTruckScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            if (uiState.step == LoadTruckStep.LOADING && !uiState.isSaving) {
+            if (uiState.step == LoadTruckStep.PACKAGE_DETAIL && !uiState.isSaving) {
                 ExtendedFloatingActionButton(
                     onClick = viewModel::openScanner,
                     icon = {
                         Icon(Icons.Default.QrCodeScanner, contentDescription = null)
                     },
-                    text = { Text("Escanear paquete") }
+                    text = { Text("Escanear para cargar") }
                 )
             }
         }
@@ -149,11 +158,18 @@ fun LoadTruckScreen(
                 isSaving = uiState.isSaving,
                 onSearchQueryChange = viewModel::onSearchQueryChange,
                 onFilterClick = viewModel::openFilterSheet,
-                onPackageClick = { pkg ->
-                    viewModel.onBarcodeScanned(pkg.barcode.ifBlank { pkg.id })
-                },
+                onPackageClick = viewModel::selectPackage,
                 modifier = Modifier.padding(padding)
             )
+            LoadTruckStep.PACKAGE_DETAIL -> {
+                uiState.selectedPackage?.let { pkg ->
+                    PackageDetailContent(
+                        pkg = pkg,
+                        isSaving = uiState.isSaving,
+                        modifier = Modifier.padding(padding)
+                    )
+                }
+            }
         }
     }
 
@@ -175,6 +191,59 @@ fun LoadTruckScreen(
             onCodeScanned = viewModel::onBarcodeScanned,
             onDismiss = viewModel::closeScanner,
             title = "Escanear para cargar"
+        )
+    }
+}
+
+@Composable
+private fun PackageDetailContent(
+    pkg: Package,
+    isSaving: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        if (isSaving) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+
+        Text(
+            text = "Información de entrega",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+
+        OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                InfoItem(label = "Cliente", value = pkg.clientName)
+                InfoItem(label = "Dirección", value = pkg.address)
+                if (pkg.barcode.isNotBlank()) {
+                    InfoItem(label = "Código esperado", value = pkg.barcode)
+                }
+            }
+        }
+
+    }
+}
+
+@Composable
+private fun InfoItem(label: String, value: String) {
+    Column {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge
         )
     }
 }

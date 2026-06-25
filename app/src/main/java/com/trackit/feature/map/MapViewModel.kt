@@ -21,7 +21,9 @@ data class MapUiState(
     val assignedPackages: List<Package> = emptyList(),
     val isSearching: Boolean = false,
     val isLoadingRoute: Boolean = false,
-    val routePoints: List<GeoPoint> = emptyList(),
+    val routeSegments: List<List<GeoPoint>> = emptyList(),
+    val nextPackage: Package? = null,
+    val successMessage: String? = null,
     val errorMessage: String? = null
 )
 
@@ -52,51 +54,109 @@ class MapViewModel(
         observeAssignedPackages()
     }
 
+    fun clearMessages() {
+        _uiState.update { it.copy(errorMessage = null, successMessage = null) }
+    }
+
     fun updateUserLocation(lat: Double, lon: Double) {
         _userLocation.value = lat to lon
     }
 
-    fun setLocationError(message: String) {
-        _uiState.update { it.copy(errorMessage = message) }
-    }
-
     /**
-     * Draws a route from the driver's current location through all their pending stops,
-     * in optimizer visit order (routeOrder). Skips delivered/failed packages.
+     * Draws a route from the driver's current location ONLY to the NEXT pending stop.
+     * Also transitions all CARGADO packages to EN_CAMINO if it's the start of the trip.
      */
-    fun buildAssignedRoute(currentLat: Double, currentLon: Double) {
+    fun startTrip(currentLat: Double, currentLon: Double) {
         val stops = _uiState.value.assignedPackages
             .filter { it.status != PackageStatus.ENTREGADO && it.status != PackageStatus.FALLIDO }
             .filter { it.destinationLat != null && it.destinationLon != null }
             .sortedWith(compareBy<Package, Int?>(nullsLast()) { it.routeOrder }.thenBy { it.eta })
 
         if (stops.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "No tenés paradas pendientes para rutear.") }
+            _uiState.update { 
+                it.copy(
+                    errorMessage = "No tenés paradas pendientes para rutear.", 
+                    routeSegments = emptyList(), 
+                    nextPackage = null 
+                ) 
+            }
             return
         }
 
-        val coordinates = buildList {
-            add(listOf(currentLon, currentLat))
-            stops.forEach { add(listOf(it.destinationLon!!, it.destinationLat!!)) }
-        }
+        val nextPkg = stops.first()
 
-        _uiState.update { it.copy(isLoadingRoute = true, errorMessage = null) }
+        _uiState.update { it.copy(isLoadingRoute = true, errorMessage = null, nextPackage = nextPkg) }
         viewModelScope.launch {
             try {
-                val response = mapRepository.getRouteThrough(coordinates)
-                val points = response.features.firstOrNull()?.geometry?.asLineString()?.map {
+                // 1. Update status of CARGADO packages to EN_CAMINO
+                val loadedPackages = stops.filter { it.status == PackageStatus.CARGADO }
+                loadedPackages.forEach { pkg ->
+                    packageRepository.updateStatus(pkg.id, PackageStatus.EN_CAMINO)
+                }
+
+                // 2. Build route ONLY to the next package
+                val response = mapRepository.getRoute(
+                    currentLon, currentLat,
+                    nextPkg.destinationLon!!, nextPkg.destinationLat!!
+                )
+                val segmentPoints = response.features.firstOrNull()?.geometry?.asLineString()?.map {
                     GeoPoint(it[1], it[0])
                 } ?: emptyList()
-                _uiState.update { it.copy(routePoints = points, isLoadingRoute = false) }
+
+                _uiState.update { 
+                    it.copy(
+                        routeSegments = if (segmentPoints.isNotEmpty()) listOf(segmentPoints) else emptyList(), 
+                        isLoadingRoute = false 
+                    ) 
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
                 _uiState.update {
                     it.copy(
                         isLoadingRoute = false,
-                        errorMessage = "No se pudo trazar la ruta a tus paquetes. Reintentá."
+                        errorMessage = "No se pudo trazar la ruta al siguiente paquete. Reintentá."
                     )
                 }
             }
+        }
+    }
+
+    fun deliverPackage(packageId: String, scannedCode: String) {
+        val pkg = _uiState.value.nextPackage ?: return
+        if (pkg.id != packageId) return
+
+        // Validate code using the same logic as RouteViewModel
+        val input = scannedCode.trim()
+        val expected = pkg.barcode.ifBlank { pkg.id }
+        val matches = input.equals(expected, ignoreCase = true) || input.equals(pkg.id, ignoreCase = true)
+
+        if (!matches) {
+            _uiState.update {
+                it.copy(errorMessage = "Código inválido para este paquete.")
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingRoute = true, errorMessage = null) }
+            packageRepository.updateStatus(packageId, PackageStatus.ENTREGADO)
+                .onSuccess {
+                    _uiState.update { 
+                        it.copy(
+                            successMessage = "¡Escaneo exitoso! Entrega registrada.",
+                            errorMessage = null, 
+                            isLoadingRoute = false 
+                        ) 
+                    }
+                }
+                .onFailure {
+                    _uiState.update {
+                        it.copy(
+                            isLoadingRoute = false,
+                            errorMessage = "Error al registrar la entrega."
+                        )
+                    }
+                }
         }
     }
 
@@ -108,7 +168,21 @@ class MapViewModel(
             if (currentUser == null) return@combine emptyList()
             allPackages.filter { it.assignedDriverId == currentUser.id }
         }.onEach { pkgs ->
-            _uiState.update { it.copy(assignedPackages = pkgs) }
+            _uiState.update { state ->
+                val nextStops = pkgs
+                    .filter { it.status != PackageStatus.ENTREGADO && it.status != PackageStatus.FALLIDO }
+                    .filter { it.destinationLat != null && it.destinationLon != null }
+                    .sortedWith(compareBy<Package, Int?>(nullsLast()) { it.routeOrder }.thenBy { it.eta })
+                
+                val nextPkg = nextStops.firstOrNull()
+                
+                state.copy(
+                    assignedPackages = pkgs,
+                    nextPackage = nextPkg,
+                    // Clear segments if the next package changed to force recalculation
+                    routeSegments = if (nextPkg?.id != state.nextPackage?.id) emptyList() else state.routeSegments
+                )
+            }
         }.launchIn(viewModelScope)
     }
 
@@ -147,7 +221,8 @@ class MapViewModel(
                 searchResults = emptyList(),
                 searchQuery = feature.properties.getDisplayName(),
                 isLoadingRoute = true,
-                errorMessage = null
+                errorMessage = null,
+                nextPackage = null // Clear next package when manually searching
             )
         }
 
@@ -158,7 +233,7 @@ class MapViewModel(
                     GeoPoint(it[1], it[0]) // ORS [lon, lat] -> Osmdroid GeoPoint(lat, lon)
                 } ?: emptyList()
 
-                _uiState.update { it.copy(routePoints = points, isLoadingRoute = false) }
+                _uiState.update { it.copy(routeSegments = listOf(points), isLoadingRoute = false) }
             } catch (e: Exception) {
                 e.printStackTrace()
                 _uiState.update {

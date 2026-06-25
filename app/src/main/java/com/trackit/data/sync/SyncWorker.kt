@@ -9,7 +9,6 @@ import com.trackit.data.local.mapper.toDomain
 import com.trackit.data.local.mapper.toEntity
 import com.trackit.data.model.Package
 import com.trackit.data.model.Truck
-import com.trackit.data.model.hasRouteStart
 import com.trackit.data.repository.SupabaseLocator
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Dispatchers
@@ -33,12 +32,37 @@ class SyncWorker(
             // 2. Sync Trucks
             syncTrucks()
 
+            // 3. Sync Profiles
+            syncProfiles()
+
             Log.d("SyncWorker", "Synchronization completed successfully.")
             Result.success()
         } catch (e: Exception) {
             Log.e("SyncWorker", "Synchronization failed", e)
             // Cap retries so a persistent failure (e.g. schema mismatch) doesn't loop forever.
             if (runAttemptCount >= MAX_RETRIES) Result.failure() else Result.retry()
+        }
+    }
+
+    private suspend fun syncProfiles() {
+        Log.d("SyncWorker", "Syncing profiles...")
+        
+        // A. Pull remote profiles (Read-only sync for now, as users are managed by Edge Function)
+        val remoteProfiles = supabase.postgrest["profiles"]
+            .select().decodeList<com.trackit.data.model.ProfileRow>()
+
+        val toUpsert = remoteProfiles.map { row ->
+            com.trackit.data.local.entity.ProfileEntity(
+                id = row.id,
+                displayName = row.displayName,
+                role = row.role,
+                updatedAtMillis = System.currentTimeMillis(),
+                pendingSync = false
+            )
+        }
+
+        if (toUpsert.isNotEmpty()) {
+            database.profileDao().upsertAll(toUpsert)
         }
     }
 
@@ -106,7 +130,6 @@ class SyncWorker(
 
         val stillPendingIds = database.truckDao().getPendingSync().map { it.id }.toSet()
         val toUpsert = remoteTrucks
-            .filter { it.hasRouteStart() }
             .filterNot { it.id in stillPendingIds }
             .map { it.toEntity(pendingSync = false) }
 
