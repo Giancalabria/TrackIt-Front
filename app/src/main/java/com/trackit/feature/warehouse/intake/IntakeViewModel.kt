@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.ZoneId
+
+private val ARGENTINA_ZONE = ZoneId.of("America/Argentina/Buenos_Aires")
 
 data class IntakeUiState(
     val clientName: String = "",
@@ -20,7 +23,7 @@ data class IntakeUiState(
     val destinationLon: Double? = null,
     val size: PackageSize = PackageSize.MEDIUM,
     val isFragile: Boolean = false,
-    val scheduledDate: LocalDate = LocalDate.now().plusDays(1),
+    val scheduledDate: LocalDate = LocalDate.now(ARGENTINA_ZONE),
     val barcode: String = "",
     val isSizeMenuExpanded: Boolean = false,
     val successMessage: String? = null,
@@ -113,7 +116,7 @@ class IntakeViewModel(
                             barcode = "",
                             size = PackageSize.MEDIUM,
                             isFragile = false,
-                            scheduledDate = LocalDate.now().plusDays(1),
+                            scheduledDate = LocalDate.now(ARGENTINA_ZONE),
                             successMessage = "Paquete registrado correctamente con código: ${currentState.barcode}",
                             errorMessage = null,
                             isSubmitting = false

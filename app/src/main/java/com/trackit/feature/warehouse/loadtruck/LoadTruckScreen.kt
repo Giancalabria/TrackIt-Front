@@ -149,6 +149,9 @@ fun LoadTruckScreen(
                 isSaving = uiState.isSaving,
                 onSearchQueryChange = viewModel::onSearchQueryChange,
                 onFilterClick = viewModel::openFilterSheet,
+                onPackageClick = { pkg ->
+                    viewModel.onBarcodeScanned(pkg.barcode.ifBlank { pkg.id })
+                },
                 modifier = Modifier.padding(padding)
             )
         }
@@ -278,6 +281,7 @@ private fun LoadingSessionContent(
     isSaving: Boolean,
     onSearchQueryChange: (String) -> Unit,
     onFilterClick: () -> Unit,
+    onPackageClick: (Package) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -333,7 +337,10 @@ private fun LoadingSessionContent(
                         )
                     }
                     items(pendingPackages, key = { "pending-${it.id}" }) { packageItem ->
-                        LoadTruckPackageCard(packageItem = packageItem)
+                        LoadTruckPackageCard(
+                            packageItem = packageItem,
+                            onClick = { onPackageClick(packageItem) }
+                        )
                     }
                 }
 
@@ -348,7 +355,10 @@ private fun LoadingSessionContent(
                         )
                     }
                     items(loadedPackages, key = { "loaded-${it.id}" }) { packageItem ->
-                        LoadTruckPackageCard(packageItem = packageItem)
+                        LoadTruckPackageCard(
+                            packageItem = packageItem,
+                            onClick = { /* Already loaded */ }
+                        )
                     }
                 }
             }
@@ -357,8 +367,15 @@ private fun LoadingSessionContent(
 }
 
 @Composable
-private fun LoadTruckPackageCard(packageItem: Package) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+private fun LoadTruckPackageCard(
+    packageItem: Package,
+    onClick: () -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -384,7 +401,10 @@ private fun LoadTruckPackageCard(packageItem: Package) {
                     )
                 }
             }
-            PackageStatusChip(status = packageItem.status)
+            PackageStatusChip(
+                status = packageItem.status,
+                driverName = packageItem.assignedDriverName
+            )
         }
     }
 }

@@ -15,6 +15,8 @@ data class CreateUserUiState(
     val displayName: String = "",
     val email: String = "",
     val password: String = "",
+    val confirmPassword: String = "",
+    val isPasswordVisible: Boolean = false,
     val role: UserRole = UserRole.DRIVER,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -40,6 +42,14 @@ class CreateUserViewModel(
         _uiState.update { it.copy(password = value, errorMessage = null) }
     }
 
+    fun onConfirmPasswordChange(value: String) {
+        _uiState.update { it.copy(confirmPassword = value, errorMessage = null) }
+    }
+
+    fun togglePasswordVisibility() {
+        _uiState.update { it.copy(isPasswordVisible = !it.isPasswordVisible) }
+    }
+
     fun onRoleChange(role: UserRole) {
         _uiState.update { it.copy(role = role, errorMessage = null) }
     }
@@ -49,12 +59,16 @@ class CreateUserViewModel(
         val email = s.email.trim()
         val displayName = s.displayName.trim()
 
-        if (displayName.isBlank() || email.isBlank() || s.password.isBlank()) {
+        if (displayName.isBlank() || email.isBlank() || s.password.isBlank() || s.confirmPassword.isBlank()) {
             _uiState.update { it.copy(errorMessage = "Completá todos los campos.") }
             return
         }
         if (s.password.length < 6) {
             _uiState.update { it.copy(errorMessage = "La contraseña debe tener al menos 6 caracteres.") }
+            return
+        }
+        if (s.password != s.confirmPassword) {
+            _uiState.update { it.copy(errorMessage = "Las contraseñas no coinciden.") }
             return
         }
 

@@ -215,7 +215,10 @@ fun PackageDetailScreen(
                                 label = { Text("Frágil") }
                             )
                         }
-                        PackageStatusChip(status = packageItem.status)
+                        PackageStatusChip(
+                            status = packageItem.status,
+                            driverName = packageItem.assignedDriverName
+                        )
                         uiState.errorMessage?.let { message ->
                             Text(
                                 text = message,

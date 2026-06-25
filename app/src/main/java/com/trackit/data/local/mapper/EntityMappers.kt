@@ -25,7 +25,8 @@ fun PackageEntity.toDomain(): Package = Package(
     barcode = barcode,
     routeOrder = routeOrder,
     updatedAt = Instant.ofEpochMilli(updatedAtMillis),
-    deliveredAt = deliveredAtMillis?.let { Instant.ofEpochMilli(it) }
+    deliveredAt = deliveredAtMillis?.let { Instant.ofEpochMilli(it) },
+    assignedDriverName = assignedDriverName
 )
 
 fun Package.toEntity(
@@ -50,6 +51,7 @@ fun Package.toEntity(
     routeOrder = routeOrder,
     updatedAtMillis = updatedAtMillis,
     deliveredAtMillis = deliveredAtMillis,
+    assignedDriverName = assignedDriverName,
     pendingSync = pendingSync,
     deletedLocally = deletedLocally
 )

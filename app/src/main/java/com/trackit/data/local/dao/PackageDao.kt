@@ -32,4 +32,7 @@ interface PackageDao {
 
     @Query("DELETE FROM packages WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM packages WHERE id NOT IN (:ids) AND pendingSync = 0")
+    suspend fun deleteRemovedFromRemote(ids: List<String>)
 }

@@ -3,6 +3,7 @@ package com.trackit.core.ui.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -13,6 +14,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.trackit.data.model.Package
 import com.trackit.data.model.isEditableByWarehouse
+import java.time.format.DateTimeFormatter
+
+private val DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
 @Composable
 fun HistoryPackageCard(
@@ -60,7 +64,28 @@ fun HistoryPackageCard(
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
-                PackageStatusChip(status = packageItem.status)
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Entrega: ${packageItem.scheduledDate.format(DATE_FORMATTER)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                PackageStatusChip(
+                    status = packageItem.status,
+                    driverName = packageItem.assignedDriverName
+                )
             }
 
             if (editable) {

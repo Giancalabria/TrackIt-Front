@@ -13,7 +13,7 @@ import com.trackit.data.local.entity.TruckEntity
 
 @Database(
     entities = [PackageEntity::class, TruckEntity::class, ProfileEntity::class],
-    version = 2,
+    version = 4,
     exportSchema = true
 )
 abstract class TrackItDatabase : RoomDatabase() {

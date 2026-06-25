@@ -88,11 +88,13 @@ class LoadTruckViewModel(
                 val driverPackages = packages.filter {
                     it.assignedDriverId == truck.driverId &&
                         it.scheduledDate == today &&
-                        it.status in loadTruckVisibleStatuses
+                        (it.status in loadTruckVisibleStatuses || it.status == PackageStatus.EN_DEPOSITO)
                 }
                 TruckLoadInfo(
                     truck = truck,
-                    pendingCount = driverPackages.count { it.status == PackageStatus.ASIGNADO },
+                    pendingCount = driverPackages.count { 
+                        it.status == PackageStatus.ASIGNADO || it.status == PackageStatus.EN_DEPOSITO 
+                    },
                     loadedCount = driverPackages.count {
                         it.status == PackageStatus.CARGADO || it.status == PackageStatus.EN_CAMINO
                     }
@@ -157,11 +159,11 @@ class LoadTruckViewModel(
         val eligible = packages.filter {
             it.assignedDriverId == truck.driverId &&
                 it.scheduledDate == today &&
-                it.status in loadTruckVisibleStatuses
+                (it.status in loadTruckVisibleStatuses || it.status == PackageStatus.EN_DEPOSITO)
         }
         val filtered = eligible.filterBySearchAndFilters(query, filters)
         val pending = filtered
-            .filter { it.status == PackageStatus.ASIGNADO }
+            .filter { it.status == PackageStatus.ASIGNADO || it.status == PackageStatus.EN_DEPOSITO }
             .sortedWith(compareBy<Package, Int?>(nullsLast()) { it.routeOrder }.thenBy { it.eta })
         val loaded = filtered
             .filter { it.status == PackageStatus.CARGADO || it.status == PackageStatus.EN_CAMINO }
@@ -234,9 +236,9 @@ class LoadTruckViewModel(
             pkg == null -> {
                 _uiState.update { it.copy(errorMessage = "Código no reconocido.") }
             }
-            pkg.status == PackageStatus.EN_DEPOSITO || pkg.assignedDriverId == null -> {
+            pkg.assignedDriverId == null -> {
                 _uiState.update {
-                    it.copy(errorMessage = "Paquete sin asignar. Primero debe asignarse la ruta.")
+                    it.copy(errorMessage = "Paquete sin asignar. El administrador debe asignarlo a un camión primero.")
                 }
             }
             pkg.assignedDriverId != truck.driverId -> {

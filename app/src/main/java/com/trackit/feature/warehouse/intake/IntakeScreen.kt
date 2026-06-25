@@ -5,12 +5,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -19,6 +17,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.trackit.core.ui.components.AddressSearchField
 import com.trackit.core.ui.components.BarcodeScannerSheet
 import com.trackit.data.model.PackageSize
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
+private val DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,6 +32,7 @@ fun IntakeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.successMessage) {
         uiState.successMessage?.let { message ->
@@ -116,6 +121,29 @@ fun IntakeScreen(
                 )
             }
 
+            OutlinedTextField(
+                value = uiState.scheduledDate.format(DATE_FORMATTER),
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Fecha de entrega") },
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Default.CalendarToday, contentDescription = "Seleccionar fecha")
+                    }
+                },
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    .also { interactionSource ->
+                        LaunchedEffect(interactionSource) {
+                            interactionSource.interactions.collect {
+                                if (it is androidx.compose.foundation.interaction.PressInteraction.Release) {
+                                    showDatePicker = true
+                                }
+                            }
+                        }
+                    }
+            )
+
             uiState.errorMessage?.let { message ->
                 Text(
                     text = message,
@@ -145,6 +173,57 @@ fun IntakeScreen(
             onDismiss = viewModel::closeScanner,
             title = "Asociar Código al Ingreso"
         )
+    }
+
+    if (showDatePicker) {
+        IntakeDatePickerDialog(
+            initialDate = uiState.scheduledDate,
+            onConfirm = {
+                viewModel.onScheduledDateChange(it)
+                showDatePicker = false
+            },
+            onDismiss = { showDatePicker = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun IntakeDatePickerDialog(
+    initialDate: LocalDate,
+    onConfirm: (LocalDate) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val initialMillis = initialDate
+        .atStartOfDay(ZoneId.systemDefault())
+        .toInstant()
+        .toEpochMilli()
+    val state = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    state.selectedDateMillis?.let { millis ->
+                        onConfirm(
+                            Instant.ofEpochMilli(millis)
+                                .atZone(ZoneId.systemDefault())
+                                .toLocalDate()
+                        )
+                    } ?: onDismiss()
+                }
+            ) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    ) {
+        DatePicker(state = state)
     }
 }
 

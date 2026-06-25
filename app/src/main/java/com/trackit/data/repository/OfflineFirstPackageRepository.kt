@@ -96,13 +96,14 @@ class OfflineFirstPackageRepository(
         }
     }
 
-    override suspend fun assignPackagesToDriver(packageIds: List<String>, driverId: String): Result<Unit> {
+    override suspend fun assignPackagesToDriver(packageIds: List<String>, driverId: String, driverName: String?): Result<Unit> {
         return runCatching {
             packageIds.forEach { id ->
                 val entity = database.packageDao().getById(id)
                 if (entity != null) {
                     val domain = entity.toDomain().copy(
                         assignedDriverId = driverId,
+                        assignedDriverName = driverName,
                         status = PackageStatus.ASIGNADO
                     )
                     database.packageDao().upsert(domain.toEntity(pendingSync = true))

@@ -41,7 +41,7 @@ data class Package(
     val status: PackageStatus,
     @Serializable(with = LocalDateSerializer::class)
     @SerialName("scheduled_date")
-    val scheduledDate: LocalDate = LocalDate.now(),
+    val scheduledDate: LocalDate = LocalDate.now(java.time.ZoneId.of("America/Argentina/Buenos_Aires")),
     @SerialName("assigned_driver_id")
     val assignedDriverId: String? = null,
     @SerialName("registered_by_warehouse")
@@ -55,5 +55,7 @@ data class Package(
     val updatedAt: Instant? = null,
     @Serializable(with = InstantSerializer::class)
     @SerialName("delivered_at")
-    val deliveredAt: Instant? = null
+    val deliveredAt: Instant? = null,
+    @SerialName("assigned_driver_name")
+    val assignedDriverName: String? = null
 )

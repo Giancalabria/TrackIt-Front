@@ -15,7 +15,7 @@ interface IPackageRepository {
     suspend fun getPackagesByStatus(status: PackageStatus): List<Package>
     suspend fun getDriverPackages(driverId: String): List<Package>
     suspend fun updateStatus(id: String, status: PackageStatus): Result<Unit>
-    suspend fun assignPackagesToDriver(packageIds: List<String>, driverId: String): Result<Unit>
+    suspend fun assignPackagesToDriver(packageIds: List<String>, driverId: String, driverName: String? = null): Result<Unit>
     suspend fun triggerRouteOptimization(targetDate: LocalDate): Result<RouteOptimizationResult>
     suspend fun addPackage(
         clientName: String,

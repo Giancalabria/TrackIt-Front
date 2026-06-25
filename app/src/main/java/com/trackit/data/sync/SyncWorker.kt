@@ -67,6 +67,12 @@ class SyncWorker(
         val remotePackages = supabase.postgrest["packages"]
             .select().decodeList<Package>()
 
+        // C. Clean up local records that no longer exist on the server
+        val remoteIds = remotePackages.map { it.id }
+        if (remoteIds.isNotEmpty()) {
+            database.packageDao().deleteRemovedFromRemote(remoteIds)
+        }
+
         val stillPendingIds = database.packageDao().getPendingSync().map { it.id }.toSet()
         val toUpsert = remotePackages
             .filterNot { it.id in stillPendingIds }
@@ -88,9 +94,15 @@ class SyncWorker(
             database.truckDao().markSynced(listOf(entity.id))
         }
 
-        // B. Pull remote changes (preserve rows still pending locally — see syncPackages).
+        // B. Pull remote changes
         val remoteTrucks = supabase.postgrest["trucks"]
             .select().decodeList<Truck>()
+
+        // C. Clean up local trucks
+        val remoteIds = remoteTrucks.map { it.id }
+        if (remoteIds.isNotEmpty()) {
+            database.truckDao().deleteRemovedFromRemote(remoteIds)
+        }
 
         val stillPendingIds = database.truckDao().getPendingSync().map { it.id }.toSet()
         val toUpsert = remoteTrucks

@@ -67,7 +67,10 @@ fun UnifiedPackageCard(
                                 onClick = onActionClick
                             )
                         } else {
-                            PackageStatusChip(packageItem.status)
+                            PackageStatusChip(
+                                status = packageItem.status,
+                                driverName = packageItem.assignedDriverName
+                            )
                         }
                     }
                     PackageStatus.CARGADO -> {
@@ -77,7 +80,10 @@ fun UnifiedPackageCard(
                                 onClick = onActionClick
                             )
                         } else {
-                            PackageStatusChip(packageItem.status)
+                            PackageStatusChip(
+                                status = packageItem.status,
+                                driverName = packageItem.assignedDriverName
+                            )
                         }
                     }
                     PackageStatus.EN_CAMINO -> {
@@ -88,7 +94,10 @@ fun UnifiedPackageCard(
                                 secondary = true
                             )
                         } else {
-                            PackageStatusChip(packageItem.status)
+                            PackageStatusChip(
+                                status = packageItem.status,
+                                driverName = packageItem.assignedDriverName
+                            )
                         }
                     }
                     PackageStatus.ENTREGADO -> {
@@ -108,7 +117,10 @@ fun UnifiedPackageCard(
                         }
                     }
                     else -> {
-                        PackageStatusChip(packageItem.status)
+                        PackageStatusChip(
+                            status = packageItem.status,
+                            driverName = packageItem.assignedDriverName
+                        )
                     }
                 }
             }

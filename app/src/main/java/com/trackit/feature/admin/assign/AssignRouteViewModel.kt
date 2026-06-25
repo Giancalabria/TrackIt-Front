@@ -59,9 +59,15 @@ class AssignRouteViewModel(
             val today = LocalDate.now(ARGENTINA_ZONE)
 
             packageRepository.packages.collect { allPackages ->
-                // Only today's depot packages are available to assign for today's route.
+                // Available to assign:
+                // 1. Packages not yet on a truck (EN_DEPOSITO, ASIGNADO elsewhere, or FALLIDO).
+                // 2. Packages scheduled for today OR for the future.
                 val inWarehouse = allPackages.filter {
-                    it.status == PackageStatus.EN_DEPOSITO && it.scheduledDate == today
+                    val isAvailableStatus = it.status == PackageStatus.EN_DEPOSITO || 
+                                           (it.status == PackageStatus.ASIGNADO && it.assignedDriverId != id) ||
+                                           it.status == PackageStatus.FALLIDO
+                    
+                    isAvailableStatus && !it.scheduledDate.isBefore(today)
                 }
                 val assignedToDriver = allPackages
                     .filter { it.assignedDriverId == id && it.status != PackageStatus.ENTREGADO }
@@ -143,19 +149,26 @@ class AssignRouteViewModel(
 
             val toAssign = newSelectionIds - currentAssignedIds
             if (toAssign.isNotEmpty()) {
-                val result = packageRepository.assignPackagesToDriver(toAssign.toList(), id)
+                val result = packageRepository.assignPackagesToDriver(toAssign.toList(), id, currentState.driverName)
                 if (result.isFailure) failedCount += toAssign.size
             }
 
-            // Persist the manual visit order (route_order) for the packages staying in the route.
+            // Persist the manual visit order (route_order) and ensure ASIGNADO status
+            // for the packages staying in the route.
             val orderedKept = currentState.currentRoutePackages.filter {
                 it.id in newSelectionIds && it.id !in toUnassign
             }
             orderedKept.forEachIndexed { index, pkg ->
                 val desiredOrder = index + 1
-                if (pkg.routeOrder != desiredOrder) {
+                // We update if order changed OR if status is not ASIGNADO (legacy data fix)
+                if (pkg.routeOrder != desiredOrder || pkg.status != PackageStatus.ASIGNADO) {
                     val result = packageRepository.updatePackage(
-                        pkg.copy(routeOrder = desiredOrder, assignedDriverId = id)
+                        pkg.copy(
+                            routeOrder = desiredOrder, 
+                            assignedDriverId = id,
+                            assignedDriverName = currentState.driverName,
+                            status = PackageStatus.ASIGNADO
+                        )
                     )
                     if (result.isFailure) failedCount++
                 }

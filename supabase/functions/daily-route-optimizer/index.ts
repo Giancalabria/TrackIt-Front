@@ -54,22 +54,19 @@ Deno.serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    // 0) Re-run support: free previously ASIGNADO (not yet loaded) packages for this date
-    //    so they can be rebalanced. Never touch CARGADO or beyond.
-    const { error: resetErr } = await supabase
+    // 0) Reset: liberamos los ASIGNADO que no han sido cargados aún para re-balancear
+    await supabase
       .from("packages")
-      .update({ status: "EN_DEPOSITO", assigned_driver_id: null, route_order: null })
+      .update({ status: "EN_DEPOSITO", assigned_driver_id: null, assigned_driver_name: null, route_order: null })
       .eq("status", "ASIGNADO")
       .eq("scheduled_date", targetDate);
-    if (resetErr) throw resetErr;
 
-    // 1) Fetch packages to assign (EN_DEPOSITO for targetDate)
-    const { data: packages, error: pkgErr } = await supabase
+    // 1) Fetch paquetes
+    const { data: packages } = await supabase
       .from("packages")
-      .select("id,destination_lat,destination_lon,status,scheduled_date")
+      .select("id,destination_lat,destination_lon")
       .eq("status", "EN_DEPOSITO")
       .eq("scheduled_date", targetDate);
-    if (pkgErr) throw pkgErr;
 
     const jobs = (packages ?? [])
       .filter((p) => p.destination_lat != null && p.destination_lon != null)
@@ -79,113 +76,77 @@ Deno.serve(async (req) => {
         location: [Number(p.destination_lon), Number(p.destination_lat)] as [number, number],
       }));
 
-    if (jobs.length === 0) {
-      return Response.json({ ok: true, targetDate, assigned: 0, reason: "no_jobs" });
+    if (jobs.length <= 10) {
+      return Response.json({
+        ok: false,
+        error: "Se necesitan más de 10 paquetes para generar rutas automáticamente."
+      });
     }
 
-    // 2) Fetch vehicles with a mandatory route start configured by each driver.
-    const { data: trucks, error: trkErr } = await supabase
+    // 2) Fetch camiones (traemos el ID y el NOMBRE del chofer)
+    const { data: trucks } = await supabase
       .from("trucks")
-      .select("id,driver_id,route_start_lat,route_start_lon")
+      .select("id,driver_id,driver_name,route_start_lat,route_start_lon")
       .not("driver_id", "is", null)
-      .not("route_start_lat", "is", null)
-      .not("route_start_lon", "is", null);
-    if (trkErr) throw trkErr;
+      .not("route_start_lat", "is", null);
 
-    const vehicles = (trucks ?? []).map((t, idx) => ({
+    const maxDrivers = Math.floor(jobs.length / 5);
+    const driversToUse = Math.min((trucks ?? []).length, maxDrivers);
+
+    if (driversToUse === 0) {
+      return Response.json({ ok: false, error: "No hay choferes listos para rutear (mínimo 5 paquetes por persona)." }, { status: 400 });
+    }
+
+    const vehicles = (trucks ?? []).slice(0, driversToUse).map((t, idx) => ({
       vehicleId: idx + 1,
       driverId: t.driver_id as string,
+      driverName: t.driver_name as string,
       start: [Number(t.route_start_lon), Number(t.route_start_lat)] as [number, number],
-      end: [Number(t.route_start_lon), Number(t.route_start_lat)] as [number, number],
+      capacity: [Math.ceil(jobs.length / driversToUse) + 1]
     }));
 
-    if (vehicles.length === 0) {
-      return Response.json(
-        { ok: false, targetDate, error: "no_vehicles_with_route_start" },
-        { status: 400 },
-      );
-    }
-
-    // 3) Call ORS Optimization (VROOM)
+    // 3) Llamada a ORS
     const orsPayload: OrsOptimizationRequest = {
-      vehicles: vehicles.map((v) => ({
-        id: v.vehicleId,
-        start: v.start,
-        end: v.end,
-      })),
-      jobs: jobs.map((j) => ({
-        id: j.jobId,
-        location: j.location,
-        amount: [1],
-      })),
+      vehicles: vehicles.map(v => ({ id: v.vehicleId, start: v.start, end: v.start, capacity: v.capacity })),
+      jobs: jobs.map(j => ({ id: j.jobId, location: j.location, amount: [1] }))
     };
 
     const orsRes = await fetch("https://api.openrouteservice.org/optimization", {
       method: "POST",
-      headers: {
-        Authorization: orsApiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(orsPayload),
+      headers: { Authorization: orsApiKey, "Content-Type": "application/json" },
+      body: JSON.stringify(orsPayload)
     });
 
-    if (!orsRes.ok) {
-      const text = await orsRes.text();
-      return Response.json(
-        { ok: false, targetDate, error: "ors_failed", status: orsRes.status, details: text },
-        { status: 502 },
-      );
-    }
+    const orsJson = await orsRes.json() as OrsOptimizationResponse;
 
-    const orsJson = (await orsRes.json()) as OrsOptimizationResponse;
+    // 4) Guardar asignaciones con NOMBRE de chofer
+    const jobIdToPackageId = new Map(jobs.map(j => [j.jobId, j.packageId]));
+    const vehicleToDriver = new Map(vehicles.map(v => [v.vehicleId, { id: v.driverId, name: v.driverName }]));
 
-    const jobIdToPackageId = new Map<number, string>();
-    for (const j of jobs) jobIdToPackageId.set(j.jobId, j.packageId);
-
-    const vehicleIdToDriverId = new Map<number, string>();
-    for (const v of vehicles) vehicleIdToDriverId.set(v.vehicleId, v.driverId);
-
-    // 4) Apply assignments (status=ASIGNADO, assigned_driver_id=driver, route_order=visit order)
-    const updates: Array<Promise<unknown>> = [];
+    const updates = [];
     for (const route of orsJson.routes ?? []) {
-      const driverId = vehicleIdToDriverId.get(route.vehicle);
-      if (!driverId) continue;
+      const driver = vehicleToDriver.get(route.vehicle);
+      if (!driver) continue;
 
-      let visitOrder = 1;
+      let order = 1;
       for (const step of route.steps ?? []) {
-        if (step.type !== "job" || step.job == null) continue;
-        const packageId = jobIdToPackageId.get(step.job);
-        if (!packageId) continue;
-
+        if (step.type !== "job" || !step.job) continue;
+        const pkgId = jobIdToPackageId.get(step.job);
         updates.push(
-          supabase
-            .from("packages")
-            .update({
-              status: "ASIGNADO",
-              assigned_driver_id: driverId,
-              route_order: visitOrder,
-            })
-            .eq("id", packageId),
+          supabase.from("packages").update({
+            status: "ASIGNADO",
+            assigned_driver_id: driver.id,
+            assigned_driver_name: driver.name,
+            route_order: order++
+          }).eq("id", pkgId)
         );
-        visitOrder++;
       }
     }
 
     await Promise.all(updates);
 
-    return Response.json({
-      ok: true,
-      targetDate,
-      vehicles: vehicles.length,
-      jobs: jobs.length,
-      assigned: updates.length,
-      unassigned: orsJson.unassigned?.length ?? 0,
-    });
+    return Response.json({ ok: true, assigned: updates.length });
   } catch (e) {
-    return Response.json(
-      { ok: false, error: String(e?.message ?? e) },
-      { status: 500 },
-    );
+    return Response.json({ ok: false, error: e.message }, { status: 500 });
   }
 });
-

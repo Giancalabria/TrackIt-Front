@@ -26,6 +26,7 @@ data class PackageEntity(
     val routeOrder: Int?,
     val updatedAtMillis: Long,
     val deliveredAtMillis: Long?,
+    val assignedDriverName: String?,
     val pendingSync: Boolean,
     val deletedLocally: Boolean
 )

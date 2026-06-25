@@ -29,4 +29,7 @@ interface TruckDao {
 
     @Query("UPDATE trucks SET pendingSync = 0 WHERE id IN (:ids)")
     suspend fun markSynced(ids: List<String>)
+
+    @Query("DELETE FROM trucks WHERE id NOT IN (:ids) AND pendingSync = 0")
+    suspend fun deleteRemovedFromRemote(ids: List<String>)
 }

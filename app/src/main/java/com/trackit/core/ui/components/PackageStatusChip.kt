@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.Color
 import com.trackit.data.model.PackageStatus
 
 @Composable
-fun PackageStatusChip(status: PackageStatus) {
+fun PackageStatusChip(status: PackageStatus, driverName: String? = null) {
     val (label, containerColor, labelColor) = when (status) {
         PackageStatus.EN_DEPOSITO -> Triple(
             "En depósito",
@@ -18,7 +18,7 @@ fun PackageStatusChip(status: PackageStatus) {
         )
 
         PackageStatus.ASIGNADO -> Triple(
-            "Asignado",
+            if (driverName != null) "Asignado a $driverName" else "Asignado",
             Color(0xFFE3F2FD), // Light Blue
             Color(0xFF1976D2)
         )
